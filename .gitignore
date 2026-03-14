@@ -26,3 +26,8 @@ scripts/results/*.json
 
 # Docker volumes
 docker/volumes/
+
+# Docs — only keep architecture.md and fabric_setup.md
+docs/thesis_plan.md
+docs/implementation_plan.md
+docs/test_results.md
