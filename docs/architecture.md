@@ -6,22 +6,13 @@
 
 ## 1. System Overview
 
-### Data Source
-Real-time cryptocurrency price data from public APIs (CoinGecko / Coinbase).
+Real-time cryptocurrency price data from the Coinbase WebSocket API is streamed through Azure Event Hub into Microsoft Fabric, where it is processed through a medallion architecture (Bronze → Silver → Gold) using KQL update policies and materialized views. The full pipeline runs 24/7 with no manual intervention.
 
 **Why crypto data:**
-- Continuous 24/7 streaming with no special permissions or infrastructure required
-- High volume: hundreds of events per second across hundreds of trading pairs
+- Continuous 24/7 streaming with no special permissions
+- High volume: 8–10 events/sec across 5 trading pairs
 - Simple, well-defined schema (timestamp, symbol, price, volume)
-- Real business value — financial data monitoring is a canonical enterprise streaming use case
-
-**API details:**
-| Provider | Endpoint | Rate Limit | Protocol |
-|----------|----------|------------|----------|
-| CoinGecko | `/coins/markets` | 30 req/min (free) | REST polling |
-| Coinbase Advanced Trade | `wss://advanced-trade-ws.coinbase.com` | Unlimited | WebSocket |
-
-The data generator will connect to the Coinbase WebSocket feed to receive true push-based streaming (no polling latency), falling back to CoinGecko REST polling for additional pairs.
+- Canonical enterprise streaming use case
 
 ---
 
@@ -30,113 +21,141 @@ The data generator will connect to the Coinbase WebSocket feed to receive true p
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │  DATA SOURCE                                                         │
-│  Coinbase WebSocket / CoinGecko REST API                            │
-│  (BTC, ETH, SOL, ... — hundreds of pairs)                           │
+│  Coinbase Advanced Trade WebSocket API                               │
+│  wss://advanced-trade-ws.coinbase.com                                │
+│  Symbols: BTC-USD, ETH-USD, SOL-USD, BNB-USD, XRP-USD               │
 └───────────────────────┬─────────────────────────────────────────────┘
-                        │ JSON events
+                        │ JSON push (true WebSocket, no polling)
                         ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│  DATA GENERATOR  (Python)                                            │
-│  • Connects to WebSocket feed                                        │
-│  • Normalises payload to canonical schema                            │
-│  • Publishes to Azure Event Hub via AMQP                             │
+│  DATA GENERATOR  (Python 3.11, asyncio)                              │
+│  • Deployed to Azure Container Instances (ACI, West Europe)          │
+│  • Deployed via GitHub Actions CI/CD (OIDC — no stored secrets)      │
+│  • Normalises payload → canonical PriceEvent schema (Pydantic)       │
+│  • Publishes batches to Azure Event Hub via AMQP                     │
 └───────────────────────┬─────────────────────────────────────────────┘
-                        │ AMQP / Kafka protocol
+                        │ AMQP (generator-policy — Send only)
                         ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  AZURE EVENT HUB                                                     │
-│  • Namespace: thesis-crypto-eh-ns                                    │
-│  • Event Hub: crypto-prices                                          │
-│  • Partitions: 4                                                      │
-│  • Retention: 1 day                                                  │
+│  Namespace: thesis-crypto-eh-ns (Standard, 2 TUs)                   │
+│  Event Hub: crypto-prices (4 partitions, 1-day retention)            │
+│  Auth: generator-policy (Send) | fabric-listen-policy (Listen)       │
 └───────────────────────┬─────────────────────────────────────────────┘
-                        │ Eventstream connector
+                        │ fabric-listen-policy (Listen only)
                         ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │  MICROSOFT FABRIC — Real-Time Intelligence                           │
+│  Workspace: Realtime Intelligence (tandatadev F2, North Europe)      │
 │                                                                      │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  EVENTSTREAM  (crypto-price-stream)                          │   │
-│  │  • Ingests from Event Hub                                    │   │
-│  │  • Routes to KQL Database destination                        │   │
+│  │  EVENTSTREAM  crypto-eventstream                             │   │
+│  │  • Ingests from Event Hub via fabric-listen-policy           │   │
+│  │  • Destination: price_raw table in crypto_db                 │   │
 │  └──────────────────────────┬───────────────────────────────────┘   │
 │                             │                                        │
 │                             ▼                                        │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  KQL DATABASE  (CryptoPriceDB)                               │   │
+│  │  KQL DATABASE  crypto_db  (inside Eventhouse crypto_eventhouse)  │
 │  │                                                              │   │
-│  │  BRONZE  RawPrices                                           │   │
-│  │  ├── Raw ingested records (append-only)                      │   │
-│  │  ├── All fields preserved including raw JSON                 │   │
-│  │  └── Ingestion metadata (timestamp, partition, offset)       │   │
+│  │  BRONZE  price_raw  (auto-created by Eventstream)            │   │
+│  │  ├── Append-only, raw JSON preserved in raw_payload          │   │
+│  │  └── Faithful record of everything that arrived              │   │
 │  │                                                              │   │
-│  │  SILVER  CleanPrices  [update policy on RawPrices]           │   │
-│  │  ├── Validated and typed records                             │   │
-│  │  ├── Nulls / outliers filtered                               │   │
-│  │  └── Enriched with derived fields (price_change_pct, etc.)  │   │
+│  │  SILVER  price_silver  [update policy → SilverTransform()]   │   │
+│  │  ├── Auto-populated on every price_raw ingest                │   │
+│  │  ├── Invalid rows filtered (null price, empty symbol)        │   │
+│  │  └── latency_ms = ingestion_time − timestamp_utc             │   │
 │  │                                                              │   │
-│  │  GOLD  PriceAggregates  [materialized view on CleanPrices]   │   │
-│  │  ├── 1-min OHLCV candles per symbol                          │   │
-│  │  ├── Rolling 5-min / 1-hr volume-weighted average price      │   │
-│  │  └── Alert triggers (price spike > X%)                       │   │
+│  │  GOLD  price_gold  [materialized view on price_silver]       │   │
+│  │  ├── 1-min OHLCV candles per symbol (auto-updated)           │   │
+│  │  ├── avg/p95/p99 latency per window                          │   │
+│  │  └── event_count per window (throughput metric)              │   │
+│  │                                                              │   │
+│  │  ALERTS  price_alerts + DetectPriceSpikes()                  │   │
+│  │  ├── KQL function: spikes > threshold% in time window        │   │
+│  │  ├── KQL function: volume surges > Nx baseline               │   │
+│  │  └── KQL function: log-return volatility ranking             │   │
 │  └──────────────────────────┬───────────────────────────────────┘   │
 │                             │                                        │
 │  ┌──────────────────────────▼───────────────────────────────────┐   │
-│  │  REAL-TIME DASHBOARD  (Fabric RTI Dashboard + Power BI)      │   │
-│  │  • Live price tiles (auto-refresh)                           │   │
-│  │  • OHLCV candlestick charts                                  │   │
-│  │  • Volume heatmap                                            │   │
-│  │  • Latency monitoring panel                                  │   │
+│  │  RTI DASHBOARD  Crypto Live Dashboard (30s auto-refresh)     │   │
+│  │  • BTC-USD price line chart (price_gold)                     │   │
+│  │  • Live prices table — all symbols (price_silver)            │   │
+│  │  • End-to-end latency p50/p95 (price_silver)                 │   │
+│  │  • Throughput events/min (price_silver)                      │   │
+│  │  • Price spike alerts (DetectPriceSpikes)                    │   │
+│  │  • Volatility ranking (GetVolatility)                        │   │
 │  └──────────────────────────────────────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Data Schema
+## 3. Medallion Architecture in KQL
 
-### Canonical Event (published to Event Hub)
+The key architectural contribution of this thesis: the entire Bronze → Silver → Gold transformation is implemented **inside the KQL Database** using native Fabric features — no Spark, no notebooks, no external orchestration.
+
+### Bronze — `price_raw`
+Auto-created by Eventstream when the destination is configured. Append-only table. Every field from the generator is stored as-is, including `raw_payload` (full original JSON as `dynamic`). This is the audit trail — never modified.
+
+### Silver — `price_silver`
+Created via `.create-merge table`. An **update policy** triggers `SilverTransform()` on every ingest into `price_raw`. The function:
+1. Validates each row (non-null price > 0, non-empty symbol)
+2. Casts all types explicitly
+3. Computes `latency_ms = ingestion_time − timestamp_utc` — the core thesis metric
+4. Filters invalid rows — they stay in Bronze but never reach Silver
+
+### Gold — `price_gold`
+A **materialized view** on `price_silver`. Fabric automatically maintains it as new data arrives. Groups into 1-minute windows per symbol, computes OHLCV + latency percentiles. `backfill=true` processes all historical data on creation.
+
+---
+
+## 4. Data Schema
+
+### Event (published to Event Hub by generator)
 
 ```json
 {
   "event_id":       "uuid-v4",
   "symbol":         "BTC-USD",
-  "price":          68432.15,
-  "volume_24h":     29847234.50,
-  "market_cap":     1348293847234.00,
-  "timestamp_utc":  "2026-01-15T10:23:45.123Z",
+  "price":          70655.23,
+  "volume_24h":     3997.09,
+  "market_cap":     0.0,
+  "timestamp_utc":  "2026-03-14T19:05:03.461537+00:00",
   "source":         "coinbase_ws",
-  "sequence":       8472934
+  "sequence":       46702,
+  "ingestion_time": "2026-03-14T19:05:08.813343+00:00",
+  "raw_payload":    "{...full json...}"
 }
 ```
 
-### Bronze Table — `RawPrices`
+### Bronze — `price_raw`
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `event_id` | string | UUID from producer |
-| `symbol` | string | Trading pair (e.g. BTC-USD) |
+| `symbol` | string | Trading pair (BTC-USD etc.) |
 | `price` | real | Trade price |
 | `volume_24h` | real | 24-hour rolling volume |
 | `market_cap` | real | Market capitalisation |
-| `timestamp_utc` | datetime | Event timestamp from source |
-| `source` | string | API source identifier |
-| `sequence` | long | Source sequence number |
-| `ingestion_time` | datetime | Fabric ingestion timestamp |
+| `timestamp_utc` | datetime | Event timestamp from Coinbase |
+| `source` | string | `coinbase_ws` |
+| `sequence` | long | Producer sequence number |
+| `ingestion_time` | datetime | Fabric ingest timestamp |
 | `raw_payload` | dynamic | Full original JSON |
 
-### Silver Table — `CleanPrices` (via update policy)
+### Silver — `price_silver`
 
-Adds derived fields, removes invalid rows:
+All Bronze columns except `raw_payload`, plus:
 
 | Column | Type | Description |
 |--------|------|-------------|
-| *(all Bronze columns except raw_payload)* | | |
 | `price_usd` | real | Normalised price in USD |
-| `is_valid` | bool | Passed validation rules |
-| `latency_ms` | long | `ingestion_time - timestamp_utc` in ms |
+| `is_valid` | bool | Passed all validation rules |
+| `latency_ms` | long | `ingestion_time − timestamp_utc` in ms |
 
-### Gold Table — `PriceAggregates` (materialized view)
+### Gold — `price_gold` (materialized view)
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -146,204 +165,97 @@ Adds derived fields, removes invalid rows:
 | `high` | real | Max price in window |
 | `low` | real | Min price in window |
 | `close` | real | Last price in window |
-| `volume` | real | Total volume in window |
-| `event_count` | long | Number of events in window |
-| `avg_latency_ms` | real | Average end-to-end latency |
+| `volume` | real | Total volume_24h sum |
+| `event_count` | long | Events in window (throughput) |
+| `avg_latency_ms` | real | Mean latency |
+| `p95_latency_ms` | real | 95th percentile latency |
+| `p99_latency_ms` | real | 99th percentile latency |
 
 ---
 
-## 4. Azure Resources
+## 5. CI/CD & Deployment
 
-| Resource | Name | SKU / Config |
-|----------|------|-------------|
+```
+Developer pushes to main
+        │
+        ▼
+GitHub Actions CI (ci.yml)
+  • Python lint (ruff)
+  • Pydantic schema validation
+  • KQL file existence check
+
+If generator/** changed:
+        │
+        ▼
+GitHub Actions Deploy (deploy.yml)
+  • OIDC login to Azure (no stored client secrets)
+  • docker buildx → linux/amd64 image
+  • Push to ACR (thesiscryptoacr.azurecr.io)
+  • Delete + recreate ACI container group
+  • Verify container reaches Running state
+```
+
+**OIDC authentication:** GitHub Actions uses OpenID Connect to get a short-lived JWT from Azure AD. No `AZURE_CLIENT_SECRET` stored anywhere — only `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`.
+
+---
+
+## 6. Azure Resources
+
+| Resource | Name | SKU |
+|----------|------|-----|
 | Resource Group | `rg-thesis-fabric` | — |
+| Container Registry | `thesiscryptoacr` | Basic |
+| Container Instance | `crypto-generator` | 1 vCPU, 1.5GB, West Europe |
 | Event Hub Namespace | `thesis-crypto-eh-ns` | Standard, 2 TUs |
 | Event Hub | `crypto-prices` | 4 partitions, 1-day retention |
-| (Optional) Azure SQL | n/a | Not required — using public API |
 
----
-
-## 5. Fabric Workspace Resources
+## 7. Fabric Resources
 
 | Resource | Name | Type |
 |----------|------|------|
-| Workspace | `Realtime Intelligence` | Fabric workspace (capacity: tandatadev F2) |
-| Eventhouse | `crypto-eventhouse` | Eventhouse |
-| KQL Database | `crypto-eventhouse` | KQL Database (inside Eventhouse) |
+| Capacity | `tandatadev` | F2, North Europe |
+| Workspace | `Realtime Intelligence` | Fabric workspace |
+| Eventhouse | `crypto_eventhouse` | Eventhouse |
+| KQL Database | `crypto_db` | KQL Database |
 | Eventstream | `crypto-eventstream` | Eventstream |
 | Dashboard | `Crypto Live Dashboard` | RTI Dashboard |
 
 ---
 
-## 6. KQL Implementation
+## 8. Performance Metrics
 
-### Bronze — Raw ingestion table
-```kql
-.create table RawPrices (
-    event_id: string,
-    symbol: string,
-    price: real,
-    volume_24h: real,
-    market_cap: real,
-    timestamp_utc: datetime,
-    source: string,
-    sequence: long,
-    ingestion_time: datetime,
-    raw_payload: dynamic
-)
-```
+Latency is measured per-event as `latency_ms = ingestion_time − timestamp_utc` (Fabric ingest time minus Coinbase source timestamp). This captures end-to-end latency from the exchange tick to data being queryable in KQL.
 
-### Silver — Update policy function
-```kql
-.create function SilverTransform() {
-    RawPrices
-    | where isnotnull(price) and price > 0
-    | where isnotnull(symbol) and symbol != ""
-    | extend
-        price_usd = price,
-        is_valid = (price > 0 and isnotnull(volume_24h)),
-        latency_ms = datetime_diff('millisecond', ingestion_time, timestamp_utc)
-    | project-away raw_payload
-}
-
-.create table CleanPrices (
-    event_id: string,
-    symbol: string,
-    price: real,
-    volume_24h: real,
-    market_cap: real,
-    timestamp_utc: datetime,
-    source: string,
-    sequence: long,
-    ingestion_time: datetime,
-    price_usd: real,
-    is_valid: bool,
-    latency_ms: long
-)
-
-.alter table CleanPrices policy update
-@'[{"IsEnabled": true, "Source": "RawPrices", "Query": "SilverTransform()", "IsTransactional": false, "PropagateIngestionProperties": false}]'
-```
-
-### Gold — Materialized view (1-min OHLCV)
-```kql
-.create materialized-view with (backfill=true) PriceAggregates on table CleanPrices {
-    CleanPrices
-    | where is_valid == true
-    | summarize
-        open  = take_any(price_usd),
-        high  = max(price_usd),
-        low   = min(price_usd),
-        close = arg_max(timestamp_utc, price_usd),
-        volume = sum(volume_24h),
-        event_count = count(),
-        avg_latency_ms = avg(latency_ms)
-      by symbol, window_start = bin(timestamp_utc, 1m)
-}
-```
+| Metric | Query |
+|--------|-------|
+| p50/p95/p99 latency | `price_silver \| summarize percentile(toreal(latency_ms), 50/95/99)` |
+| Throughput (eps) | `price_silver \| summarize count() by bin(timestamp_utc, 1m)` |
+| OHLCV | `price_gold \| where symbol == "BTC-USD"` |
+| Spike detection | `DetectPriceSpikes(2.0, 60s)` |
 
 ---
 
-## 7. Data Generator
-
-**Language:** Python 3.11+
-**Key dependencies:** `websockets`, `azure-eventhub`, `aiohttp`, `pydantic`
-
-```
-Pipeline/
-├── generator/
-│   ├── main.py               # Entry point
-│   ├── sources/
-│   │   ├── coinbase_ws.py    # WebSocket client
-│   │   └── coingecko_rest.py # REST polling fallback
-│   ├── publisher/
-│   │   └── eventhub.py       # Azure Event Hub publisher
-│   ├── models/
-│   │   └── price_event.py    # Pydantic schema
-│   └── config.py             # Settings from env vars
-├── infra/
-│   ├── main.bicep            # Azure resources
-│   └── parameters.json
-├── kql/
-│   ├── 01_bronze.kql
-│   ├── 02_silver.kql
-│   └── 03_gold.kql
-└── docs/
-    ├── thesis_plan.md
-    └── architecture.md       # ← this file
-```
-
----
-
-## 8. Performance Testing Plan
-
-| Test | Target | Metric |
-|------|--------|--------|
-| Baseline latency | Single symbol, low volume | p50/p95/p99 ms end-to-end |
-| Throughput ramp | 100 → 1000 events/sec | Max sustainable TPS without lag |
-| Burst handling | 10x spike for 60s | Recovery time, dropped events |
-| Sustained load | 500 events/sec for 1 hour | Drift, error rate |
-| Partition scaling | 1 → 8 partitions | Throughput vs partition count |
-
-Latency is measured as: `ingestion_time (Fabric) − timestamp_utc (source API)` stored per-event in `CleanPrices.latency_ms`.
-
----
-
-## 9. Architectural Decisions (Resolved)
+## 9. Architectural Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Primary data source | Coinbase WebSocket | True push-based streaming, no polling latency, 24/7 |
-| Secondary source | CoinGecko REST (30s poll) | Market cap enrichment — lower frequency is sufficient |
-| Symbols tracked | 5 core (BTC/ETH/SOL/BNB/XRP) | Sufficient event volume without API rate limit pressure |
-| Event Hub SKU | Standard, 2 TUs | Kafka protocol support required; 2 TUs handles ~200 events/sec, sufficient for thesis |
-| Fabric capacity | F2 minimum (F4 recommended) | F2 sufficient for dev; F4 for sustained 500+ eps load tests |
-| Dashboard refresh | RTI Dashboard 30s, Power BI DirectQuery | Balances real-time appearance with Fabric query costs |
-| Anomaly detection | KQL stored functions | No external service needed; runs directly on ingested data |
+| Data source | Coinbase WebSocket | True push, no polling latency, 24/7 |
+| Symbols | 5 (BTC/ETH/SOL/BNB/XRP) | Sufficient volume, no rate limit pressure |
+| Event Hub SKU | Standard, 2 TUs | Kafka protocol support; handles ~200 eps |
+| Medallion implementation | KQL update policy + materialized view | No Spark/notebooks needed |
+| Fabric capacity | F2 | Sufficient for thesis testing window |
+| Dashboard refresh | 30 seconds | Minimum supported on F2 |
+| Anomaly detection | KQL stored functions | Runs on ingested data, no external service |
+| CI/CD auth | OIDC (no client secrets) | Industry best practice, no secret rotation |
 
 ---
 
-## 10. Deduplication and Idempotency
+## 10. Alternative Architecture Comparison
 
-Each event carries a UUID `event_id` generated at the producer. This enables deduplication at the Silver layer if events are replayed (e.g. after Event Hub retention recovery):
-
-```kql
-// Deduplicate on ingest — use in Silver if needed
-CleanPrices
-| summarize arg_max(ingestion_time, *) by event_id
-```
-
-The Bronze table is append-only (by design) — deduplication happens at Silver, not Bronze. This follows the medallion principle: Bronze is a faithful record of what arrived, Silver is what is trusted.
-
----
-
-## 11. Alternative Architecture Comparison
-
-| Approach | Latency | Complexity | Cost | Fabric lock-in |
-|----------|---------|------------|------|----------------|
-| **This thesis: Fabric RTI (KQL + Eventstream)** | Low (seconds) | Medium | Low–Medium | High |
-| Databricks Structured Streaming | Low (seconds) | High | High | Low |
-| Azure Stream Analytics | Medium (seconds) | Low | Medium | Medium |
-| Pure Kafka + ksqlDB | Very low (ms) | Very high | High (infra) | None |
-| Synapse Analytics (batch) | High (minutes) | Medium | Medium | Medium |
-
-**Why Fabric RTI for this thesis:**
-- Unified platform — no separate orchestration between broker, processor, and storage
-- KQL update policies replace Spark jobs for medallion transformations — significantly simpler
-- Native Power BI integration with DirectQuery and real-time push
-- Relevant research gap — insufficient academic evaluation exists for this platform
-
----
-
-## 12. Cost Estimate (thesis setup)
-
-| Resource | SKU | Est. monthly cost |
-|----------|-----|-------------------|
-| Event Hub Namespace | Standard, 2 TUs | ~€20 |
-| Event Hub throughput (100 eps, 1 month) | ~26M events | ~€3 |
-| Microsoft Fabric | F2 capacity (trial or paid) | €0 (60-day trial) / ~€260 |
-| Azure Container Instances | 1 vCPU, 1.5GB, always-on | ~€30 |
-| **Total (trial period)** | | **~€50** |
-| **Total (post-trial, F2)** | | **~€310/month** |
-
-For a thesis with a defined testing window (3 weeks), total Azure cost is approximately **€30–50** if using the Fabric free trial.
+| Approach | Latency | Complexity | Cost | Notes |
+|----------|---------|------------|------|-------|
+| **This thesis: Fabric RTI** | seconds | Medium | Low–Medium | Unified platform, KQL-native medallion |
+| Databricks Structured Streaming | seconds | High | High | More flexible, heavier ops overhead |
+| Azure Stream Analytics | seconds | Low | Medium | Limited transformation expressiveness |
+| Pure Kafka + ksqlDB | ms | Very high | High | Best latency, highest infra cost |
+| Synapse Analytics (batch) | minutes | Medium | Medium | Not suitable for real-time |
