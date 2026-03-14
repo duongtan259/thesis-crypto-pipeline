@@ -10,142 +10,148 @@ Step-by-step instructions for setting up the Fabric Real-Time Intelligence layer
 
 ## 1. Create Eventhouse
 
-1. Go to Fabric workspace **Realtime Intelligence**
-2. **+ New item** → **Eventhouse**
-3. Name: `crypto-eventhouse`
-4. Click **Create**
+1. Fabric workspace **Realtime Intelligence** → **+ New item** → **Eventhouse**
+2. Name: `crypto_eventhouse`
+3. Click **Create**
 
-An Eventhouse automatically creates a KQL Database with the same name.
-
----
-
-## 2. Run KQL Setup Scripts
-
-Open the KQL Database (`crypto-eventhouse`) and run each script in order via the query editor.
-
-### Step 1 — Bronze layer
-Copy and run `kql/01_bronze.kql`:
-- Creates `RawPrices` table
-- Creates JSON ingestion mapping `RawPricesMapping`
-- Sets 30-day hot cache policy
-
-### Step 2 — Silver layer
-Copy and run `kql/02_silver.kql`:
-- Creates `CleanPrices` table
-- Creates `SilverTransform()` function
-- Attaches update policy: auto-runs on every `RawPrices` ingest
-
-### Step 3 — Gold layer
-Copy and run `kql/03_gold.kql`:
-- Creates `PriceAggregates` materialized view (1-min OHLCV)
-- Creates stored functions: `GetLatencyStats`, `GetThroughput`, `GetLatestPrices`, `GetMaterializedViewLag`
-
-### Step 4 — Anomaly detection
-Copy and run `kql/05_anomaly_detection.kql`:
-- Creates `PriceAlerts` table
-- Creates `DetectPriceSpikes`, `DetectVolumeSurges`, `GetVolatility` functions
-- Creates `AlertSummary` materialized view
+This auto-creates a KQL Database named `crypto_db` inside the Eventhouse.
 
 ---
 
-## 3. Create Eventstream
+## 2. Create Eventstream
 
 1. Workspace → **+ New item** → **Eventstream**
-2. Name: `crypto-eventstream`
-3. Click **Create**
+2. Name: `crypto-eventstream` → **Create**
 
 ### Add Event Hub source
 
-1. Click **Add source** → **Azure Event Hubs**
-2. Click **New connection**, fill in:
+Click **Add source** → **Azure Event Hubs** → **New connection**:
 
-   | Field | Value |
-   |-------|-------|
-   | Event Hub namespace | `thesis-crypto-eh-ns.servicebus.windows.net` |
-   | Event Hub | `crypto-prices` |
-   | Shared Access Key Name | `fabric-listen-policy` |
-   | Shared Access Key | *(get from `az eventhubs eventhub authorization-rule keys list`)* |
+| Field | Value |
+|-------|-------|
+| Event Hub namespace | `thesis-crypto-eh-ns.servicebus.windows.net` |
+| Event Hub | `crypto-prices` |
+| Shared Access Key Name | `fabric-listen-policy` |
+| Shared Access Key | *(Listen-only key — get from Azure Portal)* |
+| Consumer group | `$Default` |
+| Data format | `Json` |
 
-3. Consumer group: `$Default`
-4. Data format: `Json`
-5. Click **Next** → **Add**
+Click **Next** → **Add**.
 
 ### Add Eventhouse destination
 
-1. Click **Transform events or add destination** → **Eventhouse**
-2. Fill in:
+Click **Transform events or add destination** → **Eventhouse**:
 
-   | Field | Value |
-   |-------|-------|
-   | Eventhouse | `crypto-eventhouse` |
-   | KQL Database | `crypto-eventhouse` |
-   | Destination table | `RawPrices` |
-   | Input data format | `Json` |
-   | Mapping | `RawPricesMapping` |
+| Field | Value |
+|-------|-------|
+| Destination name | `price_raw` |
+| Workspace | `Realtime Intelligence` |
+| Eventhouse | `crypto_eventhouse` |
+| KQL Database | `crypto_db` |
+| KQL Destination table | `price_raw` (create new) |
+| Input data format | `Json` |
 
-3. Click **Add**
-4. Click **Publish** to activate the Eventstream
+Click **Save** → **Publish**.
+
+> Fabric auto-creates the `price_raw` table when the Eventstream starts ingesting.
 
 ---
 
-## 4. Verify End-to-End
+## 3. Run KQL Setup Scripts
 
-Run these queries in the KQL Database after ~2 minutes:
+Open `crypto_db` in the KQL query editor and run each script in order.
+
+### Step 1 — Bronze mapping
+Run `kql/01_bronze.kql`:
+- Adds `RawPricesMapping` JSON mapping to `price_raw`
+- Sets 30-day hot cache policy
+
+### Step 2 — Silver layer
+Run `kql/02_silver.kql`:
+- Creates `price_silver` table
+- Creates `SilverTransform()` function
+- Attaches update policy → auto-runs on every `price_raw` ingest
+- Backfill: `.set-or-append price_silver <| SilverTransform()`
+
+### Step 3 — Gold layer
+Run `kql/03_gold.kql`:
+- Creates `price_gold` materialized view (1-min OHLCV per symbol)
+- Creates helper functions: `GetLatencyStats`, `GetThroughput`, `GetLatestPrices`, `GetMaterializedViewLag`
+
+### Step 4 — Anomaly detection
+Run `kql/05_anomaly_detection.kql`:
+- Creates `price_alerts` table
+- Creates `DetectPriceSpikes`, `DetectVolumeSurges`, `GetVolatility` functions
+
+---
+
+## 4. Build RTI Dashboard
+
+Workspace → **+ New item** → **Real-Time Dashboard** → `Crypto Live Dashboard`
+
+Add data source → `crypto_db`. Add tiles:
+
+| Tile | Query | Chart type |
+|------|-------|-----------|
+| BTC-USD Price (1-min) | `price_gold \| where symbol=="BTC-USD" \| order by window_start asc \| project window_start, close` | Line chart |
+| Throughput | `price_silver \| where timestamp_utc > ago(30m) \| summarize events_per_min=count() by bin(timestamp_utc,1m) \| order by timestamp_utc asc` | Line chart |
+| End-to-End Latency | `price_silver \| where timestamp_utc > ago(30m) \| summarize p50=percentile(toreal(latency_ms),50), p95=percentile(toreal(latency_ms),95) by bin(timestamp_utc,1m) \| order by timestamp_utc asc` | Line chart |
+| Live Prices | `price_silver \| summarize arg_max(timestamp_utc, price_usd) by symbol \| project symbol, price_usd, timestamp_utc \| order by symbol asc` | Table |
+| Price Spike Alerts | `DetectPriceSpikes(1.0, 60s)` | Table |
+| Volatility Ranking | `GetVolatility(1h)` | Table |
+
+Set **Auto refresh: 30 seconds**.
+
+---
+
+## 5. Verify End-to-End
+
+Run `kql/04_verify.kql` in the KQL editor:
 
 ```kql
-// 1. Bronze — is data arriving?
-RawPrices | count
-
-// 2. Silver — is update policy working?
-CleanPrices | take 5 | project symbol, price_usd, latency_ms, timestamp_utc
-
-// 3. Gold — is materialized view populating?
-PriceAggregates | take 5
-
-// 4. Latency stats
-GetLatencyStats(5m)
-
-// 5. Throughput
-GetThroughput(10m)
-
-// 6. Latest prices
-GetLatestPrices()
-
-// 7. Anomaly detection
-DetectPriceSpikes(1.0, 60s)
+price_raw | count          // Bronze — data arriving?
+price_silver | count       // Silver — update policy working?
+price_gold | count         // Gold — materialized view populated?
+GetLatencyStats(5m)        // Latency p50/p95/p99
+DetectPriceSpikes(1.0, 60s) // Anomaly detection
 ```
 
 ---
 
-## 5. Auth Policies Summary
+## 6. Auth Policies Summary
 
-| Policy Name | Rights | Used By |
-|-------------|--------|---------|
+| Policy | Rights | Used By |
+|--------|--------|---------|
 | `generator-policy` | Send | Python generator / ACI container |
-| `fabric-listen-policy` | Listen | Fabric Eventstream |
+| `fabric-listen-policy` | Listen | Fabric Eventstream source |
 
-Both are hub-level policies on `crypto-prices` (not namespace-level).
+Both are hub-level policies on `crypto-prices` event hub.
 
 ---
 
-## 6. Pause Capacity When Not Testing
+## 7. Fabric Resources Summary
 
-To avoid charges, pause the F2 capacity when done:
+| Resource | Name | Type |
+|----------|------|------|
+| Workspace | `Realtime Intelligence` | Fabric workspace |
+| Eventhouse | `crypto_eventhouse` | Eventhouse |
+| KQL Database | `crypto_db` | KQL Database |
+| Eventstream | `crypto-eventstream` | Eventstream |
+| Dashboard | `Crypto Live Dashboard` | RTI Dashboard |
 
+---
+
+## 8. Pause Capacity When Not Testing
+
+Via Azure Portal: search `tandatadev` → **Pause**
+
+Or CLI:
 ```bash
-az fabric capacity update \
-  --resource-group rg-thesis-fabric \
-  --capacity-name tandatadev \
-  --administration '{"members": []}' \
-  --no-wait
+# Pause
+az rest --method post \
+  --url "https://management.azure.com/subscriptions/d57c84a0-6a84-4224-8c7b-1e99150de15c/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/suspend?api-version=2023-11-01"
 
-# Or via Azure Portal:
-# portal.azure.com → tandatadev → Pause
-```
-
-Resume before next session:
-```bash
-az fabric capacity resume \
-  --resource-group rg-thesis-fabric \
-  --capacity-name tandatadev
+# Resume
+az rest --method post \
+  --url "https://management.azure.com/subscriptions/d57c84a0-6a84-4224-8c7b-1e99150de15c/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/resume?api-version=2023-11-01"
 ```

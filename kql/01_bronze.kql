@@ -1,24 +1,14 @@
 // ════════════════════════════════════════════════════════════════
-// BRONZE LAYER — Raw ingestion table
-// Run this first in the KQL Database query editor in Fabric
+// BRONZE LAYER — Raw ingestion table (price_raw)
+// Table is auto-created by Fabric Eventstream when destination is configured.
+// Run this only to add the JSON mapping and cache policy.
+//
+// Actual table name: price_raw
+// Created by: Eventstream destination (crypto-eventstream → crypto_db)
 // ════════════════════════════════════════════════════════════════
 
-// Create the raw table
-.create-merge table RawPrices (
-    event_id:       string,
-    symbol:         string,
-    price:          real,
-    volume_24h:     real,
-    market_cap:     real,
-    timestamp_utc:  datetime,
-    source:         string,
-    sequence:       long,
-    ingestion_time: datetime,
-    raw_payload:    dynamic
-)
-
 // JSON ingestion mapping — maps JSON keys to table columns
-.create-or-alter table RawPrices ingestion json mapping 'RawPricesMapping'
+.create-or-alter table price_raw ingestion json mapping 'RawPricesMapping'
 '['
 '  {"column":"event_id",       "path":"$.event_id"},'
 '  {"column":"symbol",         "path":"$.symbol"},'
@@ -32,8 +22,8 @@
 '  {"column":"raw_payload",    "path":"$"}'
 ']'
 
-// Keep 30 days hot in cache for performance testing queries
-.alter table RawPrices policy caching hot = 30d
+// Keep 30 days hot in cache for fast queries
+.alter table price_raw policy caching hot = 30d
 
 // Verify
-.show table RawPrices
+.show table price_raw

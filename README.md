@@ -53,14 +53,14 @@ A production-grade real-time ELT pipeline that streams live cryptocurrency price
 
 | Metric | Value |
 |--------|-------|
-| Sustained throughput | TBD events/sec |
-| p50 end-to-end latency | TBD ms |
-| p95 end-to-end latency | TBD ms |
-| p99 end-to-end latency | TBD ms |
+| Sustained throughput | ~500 events/min (8-9 eps) |
+| p50 end-to-end latency | ~2,000 ms |
+| p95 end-to-end latency | ~5,000 ms |
+| p99 end-to-end latency | ~6,500 ms |
 | Symbols tracked | 5 (BTC, ETH, SOL, BNB, XRP) |
-| Data source | Coinbase WebSocket + CoinGecko REST |
+| Data source | Coinbase WebSocket |
 
-*Results will be filled in after performance testing phase.*
+*Preliminary results from initial pipeline run. Full load test results TBD.*
 
 ---
 

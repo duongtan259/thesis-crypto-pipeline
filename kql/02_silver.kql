@@ -1,10 +1,11 @@
 // ════════════════════════════════════════════════════════════════
 // SILVER LAYER — Cleaned, validated data with latency tracking
 // Run after 01_bronze.kql
+// Table: price_silver
 // ════════════════════════════════════════════════════════════════
 
 // Target table
-.create-merge table CleanPrices (
+.create-merge table price_silver (
     event_id:       string,
     symbol:         string,
     price:          real,
@@ -19,32 +20,35 @@
     latency_ms:     long
 )
 
-// Transformation function — called by the update policy
+// Transformation function — called by the update policy on every price_raw ingest
 .create-or-alter function SilverTransform() {
-    RawPrices
+    price_raw
     | extend
         price_usd  = toreal(price),
         is_valid   = (isnotnull(price) and toreal(price) > 0.0
                       and isnotnull(symbol) and strlen(symbol) > 0),
-        latency_ms = datetime_diff('millisecond', ingestion_time, timestamp_utc)
+        latency_ms = datetime_diff('millisecond', todatetime(ingestion_time), todatetime(timestamp_utc))
     | where is_valid == true
     | project
-        event_id, symbol, price, volume_24h, market_cap,
-        timestamp_utc, source, sequence, ingestion_time,
+        event_id       = tostring(event_id),
+        symbol         = tostring(symbol),
+        price          = toreal(price),
+        volume_24h     = toreal(volume_24h),
+        market_cap     = toreal(market_cap),
+        timestamp_utc  = todatetime(timestamp_utc),
+        source         = tostring(source),
+        sequence       = tolong(sequence),
+        ingestion_time = todatetime(ingestion_time),
         price_usd, is_valid, latency_ms
 }
 
-// Attach update policy: runs SilverTransform automatically when rows land in RawPrices
-.alter table CleanPrices policy update
-@'[{
-    "IsEnabled": true,
-    "Source": "RawPrices",
-    "Query": "SilverTransform()",
-    "IsTransactional": false,
-    "PropagateIngestionProperties": false
-}]'
+// Attach update policy: runs SilverTransform automatically when rows land in price_raw
+.alter table price_silver policy update @'[{"IsEnabled":true,"Source":"price_raw","Query":"SilverTransform()","IsTransactional":false,"PropagateIngestionProperties":false}]'
 
-.alter table CleanPrices policy caching hot = 30d
+.alter table price_silver policy caching hot = 30d
+
+// Backfill existing data from price_raw
+// .set-or-append price_silver <| SilverTransform()
 
 // Verify
-.show table CleanPrices policy update
+.show table price_silver policy update

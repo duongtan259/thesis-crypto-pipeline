@@ -3,24 +3,41 @@
 // ════════════════════════════════════════════════════════════════
 
 // 1. Is data arriving in Bronze?
-RawPrices | count
+price_raw | count
 
 // 2. Is Silver update policy working?
-CleanPrices | take 5 | project symbol, price_usd, latency_ms, timestamp_utc
+price_silver | take 5 | project symbol, price_usd, latency_ms, timestamp_utc
 
 // 3. Is Gold materialized view populating?
-PriceAggregates | take 5
+price_gold | take 5
 
 // 4. Current latency stats (last 5 min)
-GetLatencyStats(5m)
+price_silver
+| where timestamp_utc > ago(5m)
+| summarize p50=percentile(toreal(latency_ms),50), p95=percentile(toreal(latency_ms),95), p99=percentile(toreal(latency_ms),99)
 
 // 5. Current throughput (last 10 min)
-GetThroughput(10m)
+price_silver
+| where timestamp_utc > ago(10m)
+| summarize events_per_min=count() by bin(timestamp_utc, 1m)
+| order by timestamp_utc desc
 
 // 6. Latest price per symbol
-GetLatestPrices()
+price_silver
+| summarize arg_max(timestamp_utc, price_usd) by symbol
+| project symbol, price_usd, timestamp_utc
+| order by symbol asc
 
-// 7. Check for any invalid rows that were filtered in Silver
-RawPrices
+// 7. Check for invalid rows filtered in Silver
+price_raw
 | extend is_valid = (isnotnull(price) and toreal(price) > 0.0 and isnotnull(symbol))
 | summarize valid=countif(is_valid), invalid=countif(not(is_valid))
+
+// 8. Gold OHLCV for BTC last 10 minutes
+price_gold
+| where symbol == "BTC-USD" and window_start > ago(10m)
+| order by window_start desc
+
+// 9. Anomaly detection
+DetectPriceSpikes(1.0, 60s)
+GetVolatility(1h)
