@@ -86,7 +86,6 @@ jobs:
           echo "==> Container logs:"
           az container logs \
             --resource-group rg-thesis-fabric \
-            --name crypto-generator \
-            --tail 20
+            --name crypto-generator
           echo ""
           echo "Deployment successful"
