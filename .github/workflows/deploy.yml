@@ -9,6 +9,10 @@ on:
 
   workflow_dispatch:   # allow manual trigger from GitHub UI
 
+permissions:
+  id-token: write   # required for OIDC token request
+  contents: read
+
 jobs:
   build-and-deploy:
     name: Build AMD64 image → ACR → ACI
@@ -17,14 +21,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Login to Azure
+      - name: Login to Azure (OIDC — no secrets)
         uses: azure/login@v2
         with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Login to Azure Container Registry
-        run: |
-          az acr login --name thesiscryptoacr
+        run: az acr login --name thesiscryptoacr
 
       - name: Build and push AMD64 image
         run: |
@@ -38,15 +43,19 @@ jobs:
 
       - name: Deploy to Azure Container Instances
         run: |
-          ACR_PASS=$(az acr credential show --name thesiscryptoacr --query "passwords[0].value" -o tsv)
+          # Delete existing container group if present (idempotent redeploy)
+          az container delete \
+            --resource-group rg-thesis-fabric \
+            --name crypto-generator \
+            --yes 2>/dev/null || true
 
           az container create \
             --resource-group rg-thesis-fabric \
             --name crypto-generator \
-            --image thesiscryptoacr.azurecr.io/crypto-generator:latest \
+            --image thesiscryptoacr.azurecr.io/crypto-generator:${{ github.sha }} \
             --registry-login-server thesiscryptoacr.azurecr.io \
             --registry-username thesiscryptoacr \
-            --registry-password "$ACR_PASS" \
+            --registry-password "$(az acr credential show --name thesiscryptoacr --query 'passwords[0].value' -o tsv)" \
             --os-type Linux \
             --environment-variables \
                 USE_LOCAL_KAFKA=false \
@@ -62,10 +71,22 @@ jobs:
 
       - name: Verify deployment
         run: |
-          sleep 20
-          STATE=$(az container show \
+          echo "Waiting for container to start..."
+          for i in $(seq 1 12); do
+            STATE=$(az container show \
+              --resource-group rg-thesis-fabric \
+              --name crypto-generator \
+              --query instanceView.state -o tsv 2>/dev/null || echo "unknown")
+            echo "  [$i/12] Container state: $STATE"
+            [ "$STATE" = "Running" ] && break
+            [ "$i" = "12" ] && echo "ERROR: Container did not reach Running state" && exit 1
+            sleep 10
+          done
+          echo ""
+          echo "==> Container logs:"
+          az container logs \
             --resource-group rg-thesis-fabric \
             --name crypto-generator \
-            --query instanceView.state -o tsv)
-          echo "Container state: $STATE"
-          [ "$STATE" = "Running" ] && echo "Deployment successful" || exit 1
+            --tail 20
+          echo ""
+          echo "Deployment successful"
