@@ -25,11 +25,11 @@ A production-grade real-time ELT pipeline that streams live cryptocurrency price
                              ┌──────────────▼──────────────┐
                              │   Microsoft Fabric           │
                              │                              │
-                             │  BRONZE  RawPrices           │
+                             │  BRONZE  price_raw           │
                              │     ↓ update policy          │
-                             │  SILVER  CleanPrices         │
+                             │  SILVER  price_silver        │
                              │     ↓ materialized view      │
-                             │  GOLD    PriceAggregates     │
+                             │  GOLD    price_gold          │
                              │     ↓                        │
                              │  ALERTS  DetectPriceSpikes   │
                              │                              │
@@ -111,8 +111,9 @@ Pipeline/
 │   ├── load_test.py               # Throughput stress tester
 │   └── results/                   # Load test output (JSON)
 └── docs/
-    ├── thesis_plan.md
+    ├── fabric_setup.md
     ├── architecture.md
+    ├── thesis_plan.md
     └── implementation_plan.md
 ```
 
@@ -152,24 +153,25 @@ docker compose -f docker/docker-compose.yml up
 
 **Microsoft Fabric setup** (one-time, in the Fabric portal):
 
-1. Create **Eventhouse** → name `crypto-eventhouse`
-2. Open the KQL Database and run scripts in order:
+1. Create **Eventhouse** → `crypto_eventhouse` → KQL Database `crypto_db`
+2. Create **Eventstream** → `crypto-eventstream`
+   - Source: Azure Event Hub (`thesis-crypto-eh-ns`, key: `fabric-listen-policy`, Listen rights)
+   - Destination: Eventhouse → `crypto_eventhouse` / table `price_raw`
+3. Open KQL Database `crypto_db` and run scripts in order:
    ```
-   kql/01_bronze.kql        # creates RawPrices table + JSON mapping
-   kql/02_silver.kql        # creates CleanPrices + update policy
-   kql/03_gold.kql          # creates PriceAggregates materialized view
+   kql/01_bronze.kql        # adds JSON mapping to price_raw
+   kql/02_silver.kql        # creates price_silver + update policy
+   kql/03_gold.kql          # creates price_gold materialized view
    kql/05_anomaly_detection.kql  # creates alert functions
    ```
-3. Create **Eventstream** → `crypto-eventstream`
-   - Source: Azure Event Hub (`thesis-crypto-eh-ns`, key: `fabric-listen-policy`, Listen rights)
-   - Destination: Eventhouse → `crypto-eventhouse` / `RawPrices`
 4. Verify data is flowing:
    ```kql
-   RawPrices | count
-   CleanPrices | take 5
-   GetLatencyStats(5m)
-   DetectPriceSpikes(2.0, 60s)
+   price_raw | count
+   price_silver | take 5
+   price_gold | take 5
+   DetectPriceSpikes(1.0, 60s)
    ```
+5. Build **RTI Dashboard** → `Crypto Live Dashboard` (see `docs/fabric_setup.md`)
 
 ### Load testing
 
@@ -231,13 +233,16 @@ Alerts are classified as `LOW / MEDIUM / HIGH / CRITICAL` based on the magnitude
 
 ## Security Architecture
 
-### Thesis setup
+### Actual thesis setup
 ```
-Generator (Mac/ACI)
-  └─ Service Principal → Key Vault → fetches Event Hub connection string at runtime
-       └─ Kafka protocol over TLS
-            └─ Event Hub (RBAC, public endpoint)
-                 └─ Fabric KQL
+GitHub Actions (OIDC — no secrets stored)
+  └─ Builds Docker image → pushes to ACR
+       └─ Deploys to Azure Container Instances (ACI, West Europe)
+            └─ Generator reads EVENTHUB_CONNECTION_STRING from secure env var
+                 └─ Publishes via AMQP to Event Hub (generator-policy, Send only)
+                      └─ Fabric Eventstream (fabric-listen-policy, Listen only)
+                           └─ price_raw → price_silver → price_gold (KQL Database)
+                                └─ RTI Dashboard (30s refresh)
 ```
 
 ### Production / enterprise equivalent
