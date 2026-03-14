@@ -47,7 +47,7 @@ The data generator will connect to the Coinbase WebSocket feed to receive true p
 │  AZURE EVENT HUB                                                     │
 │  • Namespace: thesis-crypto-eh-ns                                    │
 │  • Event Hub: crypto-prices                                          │
-│  • Partitions: 8 (for throughput testing)                            │
+│  • Partitions: 4                                                      │
 │  • Retention: 1 day                                                  │
 └───────────────────────┬─────────────────────────────────────────────┘
                         │ Eventstream connector
@@ -157,8 +157,8 @@ Adds derived fields, removes invalid rows:
 | Resource | Name | SKU / Config |
 |----------|------|-------------|
 | Resource Group | `rg-thesis-fabric` | — |
-| Event Hub Namespace | `thesis-crypto-eh-ns` | Standard, 8 TUs |
-| Event Hub | `crypto-prices` | 8 partitions, 1-day retention |
+| Event Hub Namespace | `thesis-crypto-eh-ns` | Standard, 2 TUs |
+| Event Hub | `crypto-prices` | 4 partitions, 1-day retention |
 | (Optional) Azure SQL | n/a | Not required — using public API |
 
 ---
@@ -167,11 +167,11 @@ Adds derived fields, removes invalid rows:
 
 | Resource | Name | Type |
 |----------|------|------|
-| Workspace | `Thesis-RTI` | Fabric workspace |
-| Eventstream | `crypto-price-stream` | Eventstream |
-| KQL Database | `CryptoPriceDB` | KQL Database |
+| Workspace | `Realtime Intelligence` | Fabric workspace (capacity: tandatadev F2) |
+| Eventhouse | `crypto-eventhouse` | Eventhouse |
+| KQL Database | `crypto-eventhouse` | KQL Database (inside Eventhouse) |
+| Eventstream | `crypto-eventstream` | Eventstream |
 | Dashboard | `Crypto Live Dashboard` | RTI Dashboard |
-| Power BI report | `Crypto Analytics` | Power BI |
 
 ---
 
@@ -296,7 +296,7 @@ Latency is measured as: `ingestion_time (Fabric) − timestamp_utc (source API)`
 | Primary data source | Coinbase WebSocket | True push-based streaming, no polling latency, 24/7 |
 | Secondary source | CoinGecko REST (30s poll) | Market cap enrichment — lower frequency is sufficient |
 | Symbols tracked | 5 core (BTC/ETH/SOL/BNB/XRP) | Sufficient event volume without API rate limit pressure |
-| Event Hub SKU | Standard, 8 TUs | Kafka protocol support required; 8 TUs handles 800 events/sec |
+| Event Hub SKU | Standard, 2 TUs | Kafka protocol support required; 2 TUs handles ~200 events/sec, sufficient for thesis |
 | Fabric capacity | F2 minimum (F4 recommended) | F2 sufficient for dev; F4 for sustained 500+ eps load tests |
 | Dashboard refresh | RTI Dashboard 30s, Power BI DirectQuery | Balances real-time appearance with Fabric query costs |
 | Anomaly detection | KQL stored functions | No external service needed; runs directly on ingested data |

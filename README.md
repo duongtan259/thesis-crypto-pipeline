@@ -19,7 +19,7 @@ A production-grade real-time ELT pipeline that streams live cryptocurrency price
 │  (market cap)    │
 └──────────────────┘         ┌─────────────────────────────┐
                              │     Azure Event Hub          │
-                             │     (8 partitions)           │
+                             │     (4 partitions)           │
                              └──────────────┬──────────────┘
                                             │ Eventstream
                              ┌──────────────▼──────────────┐
@@ -57,7 +57,7 @@ A production-grade real-time ELT pipeline that streams live cryptocurrency price
 | p50 end-to-end latency | TBD ms |
 | p95 end-to-end latency | TBD ms |
 | p99 end-to-end latency | TBD ms |
-| Symbols tracked | 8 (BTC, ETH, SOL, BNB, XRP, ADA, DOGE, AVAX) |
+| Symbols tracked | 5 (BTC, ETH, SOL, BNB, XRP) |
 | Data source | Coinbase WebSocket + CoinGecko REST |
 
 *Results will be filled in after performance testing phase.*
@@ -71,7 +71,7 @@ A production-grade real-time ELT pipeline that streams live cryptocurrency price
 | Data source | Coinbase Advanced Trade WebSocket API |
 | Enrichment | CoinGecko REST API |
 | Generator | Python 3.11, asyncio, Pydantic, azure-eventhub |
-| Broker | Azure Event Hub (Standard, 8 partitions) |
+| Broker | Azure Event Hub (Standard, 4 partitions) |
 | Local dev | Docker Compose, Apache Kafka, Kafka UI |
 | Ingestion | Microsoft Fabric Eventstream |
 | Storage + query | KQL Database (Kusto) |
@@ -136,20 +136,40 @@ docker compose -f docker/docker-compose.yml --profile local up
 ### Azure + Fabric (full pipeline)
 
 ```bash
-# 1. Create Azure resources (interactive)
-bash scripts/setup_azure.sh
+# 1. Deploy Azure infrastructure
+az deployment group create \
+  --resource-group rg-thesis-fabric \
+  --template-file infra/main.bicep
 
-# 2. Add connection string to .env, then:
-docker compose -f docker/docker-compose.yml --profile azure up
+# 2. Set environment variables (.env or GitHub secrets)
+#    EVENTHUB_CONNECTION_STRING — from generator-policy (Send)
+#    EVENTHUB_NAME=crypto-prices
 
-# 3. In Fabric KQL Database, run scripts in order:
-#    kql/01_bronze.kql → 02_silver.kql → 03_gold.kql → 05_anomaly_detection.kql
-
-# 4. Verify data is flowing:
-#    RawPrices | count
-#    GetLatencyStats(5m)
-#    DetectPriceSpikes(2.0, 60s)
+# 3. Deploy generator to ACI via GitHub Actions (push to main)
+#    Or run locally:
+docker compose -f docker/docker-compose.yml up
 ```
+
+**Microsoft Fabric setup** (one-time, in the Fabric portal):
+
+1. Create **Eventhouse** → name `crypto-eventhouse`
+2. Open the KQL Database and run scripts in order:
+   ```
+   kql/01_bronze.kql        # creates RawPrices table + JSON mapping
+   kql/02_silver.kql        # creates CleanPrices + update policy
+   kql/03_gold.kql          # creates PriceAggregates materialized view
+   kql/05_anomaly_detection.kql  # creates alert functions
+   ```
+3. Create **Eventstream** → `crypto-eventstream`
+   - Source: Azure Event Hub (`thesis-crypto-eh-ns`, key: `fabric-listen-policy`, Listen rights)
+   - Destination: Eventhouse → `crypto-eventhouse` / `RawPrices`
+4. Verify data is flowing:
+   ```kql
+   RawPrices | count
+   CleanPrices | take 5
+   GetLatencyStats(5m)
+   DetectPriceSpikes(2.0, 60s)
+   ```
 
 ### Load testing
 
