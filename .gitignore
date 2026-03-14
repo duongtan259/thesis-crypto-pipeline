@@ -1,0 +1,28 @@
+# Secrets — never commit
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Load test results (large JSON — commit summary separately)
+scripts/results/*.json
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Docker volumes
+docker/volumes/

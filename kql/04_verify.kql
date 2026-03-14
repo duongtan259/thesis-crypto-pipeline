@@ -1,0 +1,26 @@
+// ════════════════════════════════════════════════════════════════
+// VERIFICATION QUERIES — run these to confirm pipeline is working
+// ════════════════════════════════════════════════════════════════
+
+// 1. Is data arriving in Bronze?
+RawPrices | count
+
+// 2. Is Silver update policy working?
+CleanPrices | take 5 | project symbol, price_usd, latency_ms, timestamp_utc
+
+// 3. Is Gold materialized view populating?
+PriceAggregates | take 5
+
+// 4. Current latency stats (last 5 min)
+GetLatencyStats(5m)
+
+// 5. Current throughput (last 10 min)
+GetThroughput(10m)
+
+// 6. Latest price per symbol
+GetLatestPrices()
+
+// 7. Check for any invalid rows that were filtered in Silver
+RawPrices
+| extend is_valid = (isnotnull(price) and toreal(price) > 0.0 and isnotnull(symbol))
+| summarize valid=countif(is_valid), invalid=countif(not(is_valid))

@@ -1,0 +1,60 @@
+name: CI — Lint & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Python lint + schema validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r generator/requirements.txt ruff
+
+      - name: Lint with ruff
+        run: ruff check generator/ scripts/
+
+      - name: Validate event schema
+        run: |
+          python3 - <<'EOF'
+          import sys
+          sys.path.insert(0, "generator")
+          from datetime import datetime, timezone
+          from models.price_event import PriceEvent
+          import json
+
+          e = PriceEvent(
+              symbol="BTC-USD",
+              price=70000.0,
+              volume_24h=12345.6,
+              market_cap=1_400_000_000_000.0,
+              timestamp_utc=datetime.now(timezone.utc),
+              source="test",
+          )
+          payload = json.loads(e.to_json_bytes())
+          required = ["event_id","symbol","price","volume_24h","market_cap",
+                      "timestamp_utc","source","sequence","ingestion_time","raw_payload"]
+          missing = [f for f in required if f not in payload]
+          assert not missing, f"Missing fields: {missing}"
+          assert payload["raw_payload"] != "{}", "raw_payload should not be empty"
+          assert payload["event_id"], "event_id should be set"
+          print("Schema validation passed")
+          EOF
+
+      - name: Validate KQL files exist
+        run: |
+          for f in kql/01_bronze.kql kql/02_silver.kql kql/03_gold.kql kql/04_verify.kql kql/05_anomaly_detection.kql; do
+            [ -f "$f" ] && echo "OK: $f" || (echo "MISSING: $f" && exit 1)
+          done

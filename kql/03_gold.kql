@@ -1,0 +1,67 @@
+// ════════════════════════════════════════════════════════════════
+// GOLD LAYER — Aggregated OHLCV + latency metrics
+// Run after 02_silver.kql
+// ════════════════════════════════════════════════════════════════
+
+// 1-minute OHLCV materialized view
+// Automatically kept up to date by Fabric as new data arrives in CleanPrices
+.create materialized-view with (backfill=true) PriceAggregates on table CleanPrices
+{
+    CleanPrices
+    | where is_valid == true
+    | summarize
+        open           = arg_min(timestamp_utc, price_usd),   // price at earliest tick
+        high           = max(price_usd),
+        low            = min(price_usd),
+        close          = arg_max(timestamp_utc, price_usd),   // price at latest tick
+        volume         = sum(volume_24h),
+        event_count    = count(),
+        avg_latency_ms = avg(toreal(latency_ms)),
+        p95_latency_ms = percentile(toreal(latency_ms), 95),
+        p99_latency_ms = percentile(toreal(latency_ms), 99)
+      by
+        symbol,
+        window_start = bin(timestamp_utc, 1m)
+}
+
+// Stored function: latency distribution for any lookback window
+// Usage: GetLatencyStats(5m)
+.create-or-alter function GetLatencyStats(lookback: timespan = 5m) {
+    CleanPrices
+    | where timestamp_utc > ago(lookback) and is_valid == true
+    | summarize
+        p50            = percentile(toreal(latency_ms), 50),
+        p95            = percentile(toreal(latency_ms), 95),
+        p99            = percentile(toreal(latency_ms), 99),
+        max_latency_ms = max(toreal(latency_ms)),
+        event_count    = count()
+      by bin(timestamp_utc, 1m)
+    | order by timestamp_utc desc
+}
+
+// Stored function: throughput per minute
+.create-or-alter function GetThroughput(lookback: timespan = 10m) {
+    CleanPrices
+    | where timestamp_utc > ago(lookback)
+    | summarize events_per_min = count() by bin(timestamp_utc, 1m)
+    | order by timestamp_utc desc
+}
+
+// Stored function: latest price per symbol
+.create-or-alter function GetLatestPrices() {
+    CleanPrices
+    | summarize arg_max(timestamp_utc, price_usd, volume_24h) by symbol
+    | project symbol, price_usd, volume_24h, timestamp_utc
+    | order by symbol asc
+}
+
+// Stored function: how stale is the materialized view? (operational health check)
+.create-or-alter function GetMaterializedViewLag() {
+    PriceAggregates
+    | summarize max_window = max(window_start)
+    | extend lag_minutes = datetime_diff('minute', now(), max_window)
+    | project max_window, lag_minutes
+}
+
+// Verify
+.show materialized-view PriceAggregates

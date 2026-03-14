@@ -1,0 +1,39 @@
+// ════════════════════════════════════════════════════════════════
+// BRONZE LAYER — Raw ingestion table
+// Run this first in the KQL Database query editor in Fabric
+// ════════════════════════════════════════════════════════════════
+
+// Create the raw table
+.create-merge table RawPrices (
+    event_id:       string,
+    symbol:         string,
+    price:          real,
+    volume_24h:     real,
+    market_cap:     real,
+    timestamp_utc:  datetime,
+    source:         string,
+    sequence:       long,
+    ingestion_time: datetime,
+    raw_payload:    dynamic
+)
+
+// JSON ingestion mapping — maps JSON keys to table columns
+.create-or-alter table RawPrices ingestion json mapping 'RawPricesMapping'
+'['
+'  {"column":"event_id",       "path":"$.event_id"},'
+'  {"column":"symbol",         "path":"$.symbol"},'
+'  {"column":"price",          "path":"$.price"},'
+'  {"column":"volume_24h",     "path":"$.volume_24h"},'
+'  {"column":"market_cap",     "path":"$.market_cap"},'
+'  {"column":"timestamp_utc",  "path":"$.timestamp_utc"},'
+'  {"column":"source",         "path":"$.source"},'
+'  {"column":"sequence",       "path":"$.sequence"},'
+'  {"column":"ingestion_time", "path":"$.ingestion_time"},'
+'  {"column":"raw_payload",    "path":"$"}'
+']'
+
+// Keep 30 days hot in cache for performance testing queries
+.alter table RawPrices policy caching hot = 30d
+
+// Verify
+.show table RawPrices

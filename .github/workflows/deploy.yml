@@ -1,0 +1,71 @@
+name: Deploy — Build & Push to Azure
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "generator/**"
+      - "docker/Dockerfile.generator"
+
+  workflow_dispatch:   # allow manual trigger from GitHub UI
+
+jobs:
+  build-and-deploy:
+    name: Build AMD64 image → ACR → ACI
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Login to Azure Container Registry
+        run: |
+          az acr login --name thesiscryptoacr
+
+      - name: Build and push AMD64 image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -t thesiscryptoacr.azurecr.io/crypto-generator:latest \
+            -t thesiscryptoacr.azurecr.io/crypto-generator:${{ github.sha }} \
+            -f docker/Dockerfile.generator \
+            . \
+            --push
+
+      - name: Deploy to Azure Container Instances
+        run: |
+          ACR_PASS=$(az acr credential show --name thesiscryptoacr --query "passwords[0].value" -o tsv)
+
+          az container create \
+            --resource-group rg-thesis-fabric \
+            --name crypto-generator \
+            --image thesiscryptoacr.azurecr.io/crypto-generator:latest \
+            --registry-login-server thesiscryptoacr.azurecr.io \
+            --registry-username thesiscryptoacr \
+            --registry-password "$ACR_PASS" \
+            --os-type Linux \
+            --environment-variables \
+                USE_LOCAL_KAFKA=false \
+                DATA_SOURCE=coinbase_ws \
+                SYMBOLS="BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD" \
+                EVENTHUB_NAME=crypto-prices \
+                BATCH_SIZE=50 \
+            --secure-environment-variables \
+                EVENTHUB_CONNECTION_STRING="${{ secrets.EVENTHUB_CONNECTION_STRING }}" \
+            --cpu 1 --memory 1.5 \
+            --restart-policy Always \
+            --location westeurope
+
+      - name: Verify deployment
+        run: |
+          sleep 20
+          STATE=$(az container show \
+            --resource-group rg-thesis-fabric \
+            --name crypto-generator \
+            --query instanceView.state -o tsv)
+          echo "Container state: $STATE"
+          [ "$STATE" = "Running" ] && echo "Deployment successful" || exit 1

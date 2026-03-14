@@ -1,0 +1,50 @@
+// ════════════════════════════════════════════════════════════════
+// SILVER LAYER — Cleaned, validated data with latency tracking
+// Run after 01_bronze.kql
+// ════════════════════════════════════════════════════════════════
+
+// Target table
+.create-merge table CleanPrices (
+    event_id:       string,
+    symbol:         string,
+    price:          real,
+    volume_24h:     real,
+    market_cap:     real,
+    timestamp_utc:  datetime,
+    source:         string,
+    sequence:       long,
+    ingestion_time: datetime,
+    price_usd:      real,
+    is_valid:       bool,
+    latency_ms:     long
+)
+
+// Transformation function — called by the update policy
+.create-or-alter function SilverTransform() {
+    RawPrices
+    | extend
+        price_usd  = toreal(price),
+        is_valid   = (isnotnull(price) and toreal(price) > 0.0
+                      and isnotnull(symbol) and strlen(symbol) > 0),
+        latency_ms = datetime_diff('millisecond', ingestion_time, timestamp_utc)
+    | where is_valid == true
+    | project
+        event_id, symbol, price, volume_24h, market_cap,
+        timestamp_utc, source, sequence, ingestion_time,
+        price_usd, is_valid, latency_ms
+}
+
+// Attach update policy: runs SilverTransform automatically when rows land in RawPrices
+.alter table CleanPrices policy update
+@'[{
+    "IsEnabled": true,
+    "Source": "RawPrices",
+    "Query": "SilverTransform()",
+    "IsTransactional": false,
+    "PropagateIngestionProperties": false
+}]'
+
+.alter table CleanPrices policy caching hot = 30d
+
+// Verify
+.show table CleanPrices policy update
