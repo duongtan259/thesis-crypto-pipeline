@@ -39,7 +39,7 @@ Real-time cryptocurrency price data from the Coinbase WebSocket API is streamed 
 ┌─────────────────────────────────────────────────────────────────────┐
 │  AZURE EVENT HUB                                                     │
 │  Namespace: thesis-crypto-eh-ns (Standard, 2 TUs)                   │
-│  Event Hub: crypto-prices (4 partitions, 1-day retention)            │
+│  Event Hub: crypto-prices (4 partitions, 7-day retention)            │
 │  Auth: generator-policy (Send) | fabric-listen-policy (Listen)       │
 └───────────────────────┬─────────────────────────────────────────────┘
                         │ fabric-listen-policy (Listen only)
@@ -207,7 +207,7 @@ GitHub Actions Deploy (deploy.yml)
 | Container Registry | `thesiscryptoacr` | Basic |
 | Container Instance | `crypto-generator` | 1 vCPU, 1.5GB, West Europe |
 | Event Hub Namespace | `thesis-crypto-eh-ns` | Standard, 2 TUs |
-| Event Hub | `crypto-prices` | 4 partitions, 1-day retention |
+| Event Hub | `crypto-prices` | 4 partitions, 7-day retention |
 
 ## 7. Fabric Resources
 
