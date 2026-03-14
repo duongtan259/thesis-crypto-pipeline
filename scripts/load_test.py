@@ -148,7 +148,7 @@ async def run_load_test(eps: int, duration: int, target: str, batch_size: int = 
     }
 
     print(f"\n{'='*55}")
-    print(f"  RESULT")
+    print("  RESULT")
     print(f"  Target:    {eps} eps")
     print(f"  Achieved:  {eps_final:.1f} eps")
     print(f"  Sent:      {sent_total:,} events")

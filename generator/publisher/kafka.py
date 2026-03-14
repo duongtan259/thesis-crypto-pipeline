@@ -2,7 +2,6 @@
 Local Kafka publisher — used for offline development before Azure is set up.
 Mirrors the EventHubPublisher interface so main.py can swap between them.
 """
-import json
 import logging
 from typing import TYPE_CHECKING
 
