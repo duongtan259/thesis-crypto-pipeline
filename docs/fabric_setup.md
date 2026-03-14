@@ -32,7 +32,7 @@ Click **Add source** → **Azure Event Hubs** → **New connection**:
 | Event Hub namespace | `thesis-crypto-eh-ns.servicebus.windows.net` |
 | Event Hub | `crypto-prices` |
 | Shared Access Key Name | `fabric-listen-policy` |
-| Shared Access Key | *(Listen-only key — get from Azure Portal)* |
+| Shared Access Key | *(get from Azure Portal → Event Hub → fabric-listen-policy → Connection string)* |
 | Consumer group | `$Default` |
 | Data format | `Json` |
 
@@ -149,9 +149,9 @@ Or CLI:
 ```bash
 # Pause
 az rest --method post \
-  --url "https://management.azure.com/subscriptions/d57c84a0-6a84-4224-8c7b-1e99150de15c/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/suspend?api-version=2023-11-01"
+  --url "https://management.azure.com/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/suspend?api-version=2023-11-01"
 
 # Resume
 az rest --method post \
-  --url "https://management.azure.com/subscriptions/d57c84a0-6a84-4224-8c7b-1e99150de15c/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/resume?api-version=2023-11-01"
+  --url "https://management.azure.com/subscriptions/<SUBSCRIPTION_ID>/resourceGroups/rg-thesis-fabric/providers/Microsoft.Fabric/capacities/tandatadev/resume?api-version=2023-11-01"
 ```
