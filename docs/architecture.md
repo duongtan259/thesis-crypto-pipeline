@@ -51,12 +51,12 @@ Real-time cryptocurrency price data from the Coinbase WebSocket API is streamed 
 │  ┌──────────────────────────────────────────────────────────────┐   │
 │  │  EVENTSTREAM  crypto-eventstream                             │   │
 │  │  • Ingests from Event Hub via fabric-listen-policy           │   │
-│  │  • Destination: price_raw table in crypto_db                 │   │
+│  │  • Destination: price_raw table in crypto                 │   │
 │  └──────────────────────────┬───────────────────────────────────┘   │
 │                             │                                        │
 │                             ▼                                        │
 │  ┌──────────────────────────────────────────────────────────────┐   │
-│  │  KQL DATABASE  crypto_db  (inside Eventhouse crypto_eventhouse)  │
+│  │  KQL DATABASE  crypto  (inside Eventhouse crypto)  │
 │  │                                                              │   │
 │  │  BRONZE  price_raw  (auto-created by Eventstream)            │   │
 │  │  ├── Append-only, raw JSON preserved in raw_payload          │   │
@@ -215,8 +215,8 @@ GitHub Actions Deploy (deploy.yml)
 |----------|------|------|
 | Capacity | `tandatadev` | F2, North Europe |
 | Workspace | `Realtime Intelligence` | Fabric workspace |
-| Eventhouse | `crypto_eventhouse` | Eventhouse |
-| KQL Database | `crypto_db` | KQL Database |
+| Eventhouse | `crypto` | Eventhouse |
+| KQL Database | `crypto` | KQL Database |
 | Eventstream | `crypto-eventstream` | Eventstream |
 | Dashboard | `Crypto Live Dashboard` | RTI Dashboard |
 

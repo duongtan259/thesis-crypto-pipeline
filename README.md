@@ -153,11 +153,11 @@ docker compose -f docker/docker-compose.yml up
 
 **Microsoft Fabric setup** (one-time, in the Fabric portal):
 
-1. Create **Eventhouse** → `crypto_eventhouse` → KQL Database `crypto_db`
+1. Create **Eventhouse** → `crypto` → KQL Database `crypto`
 2. Create **Eventstream** → `crypto-eventstream`
    - Source: Azure Event Hub (`thesis-crypto-eh-ns`, key: `fabric-listen-policy`, Listen rights)
-   - Destination: Eventhouse → `crypto_eventhouse` / table `price_raw`
-3. Open KQL Database `crypto_db` and run scripts in order:
+   - Destination: Eventhouse → `crypto` / table `price_raw`
+3. Open KQL Database `crypto` and run scripts in order:
    ```
    kql/01_bronze.kql        # adds JSON mapping to price_raw
    kql/02_silver.kql        # creates price_silver + update policy

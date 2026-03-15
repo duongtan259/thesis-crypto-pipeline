@@ -4,7 +4,7 @@
 // Run this only to add the JSON mapping and cache policy.
 //
 // Actual table name: price_raw
-// Created by: Eventstream destination (crypto-eventstream → crypto_db)
+// Created by: Eventstream destination (crypto-eventstream → crypto)
 // ════════════════════════════════════════════════════════════════
 
 // JSON ingestion mapping — maps JSON keys to table columns

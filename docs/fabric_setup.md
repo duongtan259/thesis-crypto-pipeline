@@ -11,10 +11,10 @@ Step-by-step instructions for setting up the Fabric Real-Time Intelligence layer
 ## 1. Create Eventhouse
 
 1. Fabric workspace **Realtime Intelligence** → **+ New item** → **Eventhouse**
-2. Name: `crypto_eventhouse`
+2. Name: `crypto`
 3. Click **Create**
 
-This auto-creates a KQL Database named `crypto_db` inside the Eventhouse.
+This auto-creates a KQL Database named `crypto` inside the Eventhouse.
 
 ---
 
@@ -46,8 +46,8 @@ Click **Transform events or add destination** → **Eventhouse**:
 |-------|-------|
 | Destination name | `price_raw` |
 | Workspace | `Realtime Intelligence` |
-| Eventhouse | `crypto_eventhouse` |
-| KQL Database | `crypto_db` |
+| Eventhouse | `crypto` |
+| KQL Database | `crypto` |
 | KQL Destination table | `price_raw` (create new) |
 | Input data format | `Json` |
 
@@ -59,7 +59,7 @@ Click **Save** → **Publish**.
 
 ## 3. Run KQL Setup Scripts
 
-Open `crypto_db` in the KQL query editor and run each script in order.
+Open `crypto` in the KQL query editor and run each script in order.
 
 ### Step 1 — Bronze mapping
 Run `kql/01_bronze.kql`:
@@ -89,7 +89,7 @@ Run `kql/05_anomaly_detection.kql`:
 
 Workspace → **+ New item** → **Real-Time Dashboard** → `Crypto Live Dashboard`
 
-Add data source → `crypto_db`. Add tiles:
+Add data source → `crypto`. Add tiles:
 
 | Tile | Query | Chart type |
 |------|-------|-----------|
@@ -134,8 +134,8 @@ Both are hub-level policies on `crypto-prices` event hub.
 | Resource | Name | Type |
 |----------|------|------|
 | Workspace | `Realtime Intelligence` | Fabric workspace |
-| Eventhouse | `crypto_eventhouse` | Eventhouse |
-| KQL Database | `crypto_db` | KQL Database |
+| Eventhouse | `crypto` | Eventhouse |
+| KQL Database | `crypto` | KQL Database |
 | Eventstream | `crypto-eventstream` | Eventstream |
 | Dashboard | `Crypto Live Dashboard` | RTI Dashboard |
 
