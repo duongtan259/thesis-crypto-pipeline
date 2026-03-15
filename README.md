@@ -235,15 +235,19 @@ Alerts are classified as `LOW / MEDIUM / HIGH / CRITICAL` based on the magnitude
 
 ### Actual thesis setup
 ```
-GitHub Actions (OIDC — no secrets stored)
-  └─ Builds Docker image → pushes to ACR
-       └─ Deploys to Azure Container Instances (ACI, West Europe)
-            └─ Generator reads EVENTHUB_CONNECTION_STRING from secure env var
-                 └─ Publishes via AMQP to Event Hub (generator-policy, Send only)
-                      └─ Fabric Eventstream (fabric-listen-policy, Listen only)
-                           └─ price_raw → price_silver → price_gold (KQL Database)
-                                └─ RTI Dashboard (30s refresh)
+GitHub Actions (OIDC — no client secret stored)
+  └─ azure/login@v2 exchanges OIDC token for short-lived Azure access token
+       └─ Builds Docker image → pushes to ACR (authenticated via OIDC session)
+            └─ Deploys to Azure Container Instances (ACI, West Europe)
+                 └─ ACI pulls image using ACR admin credentials (stored as GitHub secret)
+                      └─ Generator reads EVENTHUB_CONNECTION_STRING from secure env var
+                           └─ Publishes via AMQP to Event Hub (generator-policy, Send only)
+                                └─ Fabric Eventstream (fabric-listen-policy, Listen only)
+                                     └─ price_raw → price_silver → price_gold (KQL Database)
+                                          └─ RTI Dashboard (30s refresh)
 ```
+
+**OIDC scope:** GitHub Actions → Azure login uses OIDC (no `AZURE_CLIENT_SECRET`). ACI image pull from ACR uses admin credentials stored as a GitHub secret — ACI does not support Managed Identity for ACR pull without additional configuration. This is a known limitation documented in Chapter 6.
 
 ### Production / enterprise equivalent
 
@@ -252,9 +256,10 @@ GitHub Actions (OIDC — no secrets stored)
 Azure Container Instance
   └─ Managed Identity (no password, no .env secrets)
        └─ Azure AD issues JWT token automatically
-            └─ Event Hub validates token via OIDC
+            └─ Event Hub validates token — no connection string needed
+ACI → ACR pull via Managed Identity (AcrPull role) — no admin credentials needed
 ```
-OIDC (OpenID Connect) is the standard protocol for token-based identity. The container proves who it is to Azure AD, which issues a short-lived JWT token — no connection strings stored anywhere.
+Managed Identity eliminates all stored credentials. The container proves who it is to Azure AD, which issues a short-lived JWT — no connection strings, no admin passwords.
 
 **Authorization — RBAC (least privilege)**
 
