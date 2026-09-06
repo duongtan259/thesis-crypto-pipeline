@@ -7,13 +7,13 @@ Usage:
     python main.py                         # reads config from .env
     USE_LOCAL_KAFKA=true python main.py    # use local Kafka (no Azure needed)
 """
+
 import asyncio
 import logging
 import sys
 import time
 
 import structlog
-
 from config import Settings
 
 # Structured logging setup
@@ -33,37 +33,48 @@ async def run(settings: Settings) -> None:
     # Pick publisher
     if settings.use_local_kafka:
         from publisher.kafka import KafkaPublisher
+
         publisher_ctx = KafkaPublisher(settings.kafka_bootstrap, settings.kafka_topic)
         log.info("mode=local_kafka", bootstrap=settings.kafka_bootstrap)
     else:
         from publisher.eventhub import EventHubPublisher
+
         if settings.eventhub_connection_string:
-            # Connection string from Key Vault (thesis mode)
+            # Explicit connection string for local validation
             publisher_ctx = EventHubPublisher(
                 eventhub_name=settings.eventhub_name,
                 connection_string=settings.eventhub_connection_string,
             )
-            log.info("mode=azure_eventhub (connection string)", hub=settings.eventhub_name)
+            log.info(
+                "mode=azure_eventhub (connection string)", hub=settings.eventhub_name
+            )
         elif settings.eventhub_namespace:
             # Managed Identity / OIDC — no secrets (production mode)
             publisher_ctx = EventHubPublisher(
                 eventhub_name=settings.eventhub_name,
                 fully_qualified_namespace=settings.eventhub_namespace,
             )
-            log.info("mode=azure_eventhub (managed identity)", hub=settings.eventhub_name)
+            log.info(
+                "mode=azure_eventhub (managed identity)", hub=settings.eventhub_name
+            )
         else:
-            log.error("Set EVENTHUB_CONNECTION_STRING (Key Vault) or EVENTHUB_NAMESPACE (Managed Identity), or USE_LOCAL_KAFKA=true")
+            log.error(
+                "Set EVENTHUB_CONNECTION_STRING or EVENTHUB_NAMESPACE (Managed Identity), or USE_LOCAL_KAFKA=true"
+            )
             sys.exit(1)
 
     # Pick source
     if settings.data_source == "coingecko_rest":
         from sources.coingecko_rest import stream_prices
+
         source = stream_prices(settings.symbol_list, settings.poll_interval)
     elif settings.data_source == "merged":
         from sources.merged import stream_prices
+
         source = stream_prices(settings.symbol_list, settings.poll_interval)
     else:
         from sources.coinbase_ws import stream_prices
+
         source = stream_prices(settings.symbol_list)
 
     log.info("starting", symbols=settings.symbol_list, source=settings.data_source)

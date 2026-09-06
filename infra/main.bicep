@@ -59,6 +59,38 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-09-01' = {
 var peSubnetId  = '${vnet.id}/subnets/${peSubnetName}'
 var aciSubnetId = '${vnet.id}/subnets/${aciSubnetName}'
 
+// Private DNS is required for resources inside the VNet to resolve the private
+// endpoint addresses instead of their public service endpoints.
+resource ehPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.servicebus.windows.net'
+  location: 'global'
+}
+
+resource ehPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: ehPrivateDnsZone
+  name: '${prefix}-eh-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: { id: vnet.id }
+  }
+}
+
+resource kvPrivateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
+  name: 'privatelink.vaultcore.azure.net'
+  location: 'global'
+}
+
+resource kvPrivateDnsVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
+  parent: kvPrivateDnsZone
+  name: '${prefix}-kv-dns-link'
+  location: 'global'
+  properties: {
+    registrationEnabled: false
+    virtualNetwork: { id: vnet.id }
+  }
+}
+
 // ════════════════════════════════════════════════════════════════
 // 2. USER-ASSIGNED MANAGED IDENTITY — generator authenticates with this
 //    No passwords. Azure AD issues OIDC tokens automatically.
@@ -166,6 +198,32 @@ resource kvPrivateEndpoint 'Microsoft.Network/privateEndpoints@2023-09-01' = {
           privateLinkServiceId: keyVault.id
           groupIds: ['vault']
         }
+      }
+    ]
+  }
+}
+
+resource ehPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-09-01' = {
+  parent: ehPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'eventhub'
+        properties: { privateDnsZoneId: ehPrivateDnsZone.id }
+      }
+    ]
+  }
+}
+
+resource kvPrivateDnsZoneGroup 'Microsoft.Network/privateEndpoints/privateDnsZoneGroups@2023-09-01' = {
+  parent: kvPrivateEndpoint
+  name: 'default'
+  properties: {
+    privateDnsZoneConfigs: [
+      {
+        name: 'keyvault'
+        properties: { privateDnsZoneId: kvPrivateDnsZone.id }
       }
     ]
   }

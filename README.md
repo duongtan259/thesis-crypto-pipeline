@@ -1,308 +1,104 @@
-# Real-Time Crypto Streaming Pipeline with Microsoft Fabric
+# Microsoft Fabric RTI thesis artefact
 
-> Master's Thesis — Tan Phuc Duong | Master's in Data Analytics
+This repository contains the implementation and evaluation package for Phuc Tan Duong's master's thesis on a real-time ELT pipeline using Microsoft Fabric Real-Time Intelligence.
 
-A production-grade real-time ELT pipeline that streams live cryptocurrency prices from the Coinbase API, routes them through Azure Event Hub, and implements a **medallion architecture (Bronze → Silver → Gold)** entirely inside Microsoft Fabric's KQL Database using update policies and materialized views.
+The thesis manuscript itself is not published here. This repository holds the code, infrastructure, KQL, tests and machine-readable evidence only.
 
----
+The demonstrated path is:
 
-## Architecture
-
-```
-┌──────────────────┐     WebSocket      ┌─────────────────────┐
-│  Coinbase API    │ ─────────────────► │  Python Generator   │
-│  (live ticks)    │                    │  (Docker container) │
-└──────────────────┘                    └──────────┬──────────┘
-                                                   │ AMQP
-┌──────────────────┐     REST (30s)                ▼
-│  CoinGecko API   │ ───────────────► market cap enrichment
-│  (market cap)    │
-└──────────────────┘         ┌─────────────────────────────┐
-                             │     Azure Event Hub          │
-                             │     (4 partitions)           │
-                             └──────────────┬──────────────┘
-                                            │ Eventstream
-                             ┌──────────────▼──────────────┐
-                             │   Microsoft Fabric           │
-                             │                              │
-                             │  BRONZE  price_raw           │
-                             │     ↓ update policy          │
-                             │  SILVER  price_silver        │
-                             │     ↓ materialized view      │
-                             │  GOLD    price_gold          │
-                             │     ↓                        │
-                             │  ALERTS  DetectPriceSpikes   │
-                             │                              │
-                             │  RTI Dashboard + Power BI    │
-                             └─────────────────────────────┘
+```text
+Coinbase WebSocket -> Python generator -> Azure Event Hub -> Fabric Eventstream
+    -> KQL Bronze (price_raw) -> Silver (price_silver) -> Gold (price_gold)
 ```
 
----
+Gold is a deterministic one-minute price-candle and operational-metrics layer. The Coinbase ticker field `volume_24h` is a rolling snapshot, so the implementation carries the latest snapshot per window; it does not claim trade-volume OHLCV.
 
-## Key Features
+## Evidence-backed results
 
-- **Dual-source ingestion** — Coinbase WebSocket for real-time ticks + CoinGecko REST for market cap enrichment, merged into a single event stream
-- **Medallion architecture in KQL** — Bronze/Silver/Gold implemented entirely with update policies and materialized views, no Spark or notebooks required
-- **Anomaly detection** — Real-time price spike alerts (`DetectPriceSpikes`), volume surge detection, and volatility tracking built as KQL stored functions
-- **End-to-end latency tracking** — every event stores `latency_ms = ingestion_time − timestamp_utc`, enabling p50/p95/p99 latency dashboards
-- **Load testing** — configurable stress tester that measures maximum sustainable throughput
+- Controlled batch experiment: one shared market stream, 18,000 common event identifiers in each arm. At batch size 50, pre-broker generator latency was p50 2,330 ms, p95 5,529 ms, and p99 6,973 ms. Batch size 1 reduced p50 to 66 ms.
+- A model calibrated on the batch-size-one arm predicted the held-out mean latencies for batch sizes 10, 50, and 100 within 0.7%. Reported mean intervals use Newey–West HAC errors over batch means.
+- Nine corrected 60-second local Kafka load runs acknowledged all 288,000 scheduled events at mean rates of 99.9, 499.4, and 998.9 events/s. This proves broker acknowledgement only, not Eventstream or Fabric delivery.
+- Controlled Azure-to-Fabric validation reconciled all 16,000 scheduled event identifiers in both Bronze and Silver across 100, 500, and 1,000 events/s runs, with zero missing sequences. At 1,000 events/s the combined serialisation-to-Bronze-commit boundary was p50 1,170 ms, p95 1,811 ms, and p99 2,007 ms. See [`cloud_e2e_validation_20260905.json`](scripts/results/cloud_e2e_validation_20260905.json).
+- Kusto reproduction: 18,089 distinct event identifiers reconciled exactly between Bronze and Silver, with zero anti-join gaps.
+- Repaired Gold view: open, high, low, close, and latest rolling-volume snapshot were correct in all 155 windows; a rebuild from unchanged Silver input produced the same SHA-256 projection.
+- The prior `take_any` Gold design and older load-test reports are retained as superseded evidence, not current conclusions.
 
----
+Component-by-component Fabric latency, Gold/dashboard refresh latency, and the Fabric capacity ceiling were not measured. The thesis does not present the generator metric as end-to-end Fabric latency or the local Kafka test as Fabric scalability.
 
-## Results (thesis benchmarks)
+## Repository map
 
-| Metric | Value |
-|--------|-------|
-| Sustained throughput | ~500 events/min (8-9 eps) |
-| p50 end-to-end latency | ~2,000 ms |
-| p95 end-to-end latency | ~5,000 ms |
-| p99 end-to-end latency | ~6,500 ms |
-| Symbols tracked | 5 (BTC, ETH, SOL, BNB, XRP) |
-| Data source | Coinbase WebSocket |
-
-*Preliminary results from initial pipeline run. Full load test results TBD.*
-
----
-
-## Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Data source | Coinbase Advanced Trade WebSocket API |
-| Enrichment | CoinGecko REST API |
-| Generator | Python 3.11, asyncio, Pydantic, azure-eventhub |
-| Broker | Azure Event Hub (Standard, 4 partitions) |
-| Local dev | Docker Compose, Apache Kafka, Kafka UI |
-| Ingestion | Microsoft Fabric Eventstream |
-| Storage + query | KQL Database (Kusto) |
-| Medallion layers | KQL update policies + materialized views |
-| Anomaly detection | KQL stored functions |
-| Visualisation | Fabric RTI Dashboard + Power BI (DirectQuery) |
-
----
-
-## Project Structure
-
-```
-Pipeline/
-├── generator/
-│   ├── main.py                    # Entry point
-│   ├── config.py                  # Settings (env vars)
-│   ├── sources/
-│   │   ├── coinbase_ws.py         # Coinbase WebSocket client
-│   │   ├── coingecko_rest.py      # CoinGecko REST polling
-│   │   └── merged.py              # Combined: WS ticks + REST market cap
-│   ├── publisher/
-│   │   ├── eventhub.py            # Azure Event Hub publisher
-│   │   └── kafka.py               # Local Kafka publisher (dev)
-│   └── models/
-│       └── price_event.py         # Pydantic event schema
-├── kql/
-│   ├── 01_bronze.kql              # Raw ingestion table + mapping
-│   ├── 02_silver.kql              # Cleaned data + update policy
-│   ├── 03_gold.kql                # OHLCV materialized view + functions
-│   ├── 04_verify.kql              # Verification queries
-│   └── 05_anomaly_detection.kql   # Price spike + volume surge alerts
-├── docker/
-│   ├── docker-compose.yml         # Local Kafka stack
-│   └── Dockerfile.generator       # Generator container
-├── scripts/
-│   ├── setup_azure.sh             # One-shot Azure resource creation
-│   ├── load_test.py               # Throughput stress tester
-│   └── results/                   # Load test output (JSON)
-└── docs/
-    ├── fabric_setup.md
-    ├── architecture.md
-    ├── thesis_plan.md
-    └── implementation_plan.md
+```text
+generator/                 Coinbase source, event model, Kafka/Event Hub publishers
+kql/                       Bronze, Silver, deterministic Gold, verification, alerts
+infra/main.bicep           Azure VNet, identity, Event Hub, Key Vault, private endpoints
+docker/                    Local Kafka development stack and generator image
+scripts/                   Capture, load, analysis and Kusto reproduction programs
+scripts/results/           Machine-readable evidence: capture manifests, experiment
+                           reports, load-test runs, Kusto reproductions, and the
+                           5 and 6 September cloud validation records
+tests/                     Regression and contract tests
+docs/architecture.md       Pipeline architecture notes
+docs/fabric_setup.md       Manual Fabric control-plane steps
 ```
 
----
-
-## Quick Start
-
-### Local dev (no Azure needed)
+## Local setup
 
 ```bash
-git clone <repo>
-cd Pipeline
+python3.11 -m venv .venv
+.venv/bin/pip install -r generator/requirements.txt pytest ruff numpy matplotlib
+docker compose -f docker/docker-compose.yml up -d zookeeper kafka
+.venv/bin/pytest -q
+.venv/bin/ruff check generator scripts tests
+```
+
+Run the live generator locally:
+
+```bash
 cp .env.example .env
-
-# Start Kafka + generator (pulls live Coinbase data)
-docker compose -f docker/docker-compose.yml --profile local up
-
-# Browse messages at http://localhost:8080 (Kafka UI)
+docker compose -f docker/docker-compose.yml --profile local up generator-local
 ```
 
-### Azure + Fabric (full pipeline)
+## Reproduce the measurements
+
+Capture one stream into concurrent batch-size arms:
 
 ```bash
-# 1. Deploy Azure infrastructure
-az deployment group create \
-  --resource-group rg-thesis-fabric \
-  --template-file infra/main.bicep
-
-# 2. Set environment variables (.env or GitHub secrets)
-#    EVENTHUB_CONNECTION_STRING — from generator-policy (Send)
-#    EVENTHUB_NAME=crypto-prices
-
-# 3. Deploy generator to ACI via GitHub Actions (push to main)
-#    Or run locally:
-docker compose -f docker/docker-compose.yml up
+.venv/bin/python scripts/capture_latency.py --duration 1800 \
+  --batch-size 1 --batch-size 10 --batch-size 50 --batch-size 100
+.venv/bin/python scripts/analyse_experiment.py
 ```
 
-**Microsoft Fabric setup** (one-time, in the Fabric portal):
-
-1. Create **Eventhouse** → `crypto` → KQL Database `crypto`
-2. Create **Eventstream** → `crypto-eventstream`
-   - Source: Azure Event Hub (`thesis-crypto-eh-ns`, key: `fabric-listen-policy`, Listen rights)
-   - Destination: Eventhouse → `crypto` / table `price_raw`
-3. Open KQL Database `crypto` and run scripts in order:
-   ```
-   kql/01_bronze.kql        # adds JSON mapping to price_raw
-   kql/02_silver.kql        # creates price_silver + update policy
-   kql/03_gold.kql          # creates price_gold materialized view
-   kql/05_anomaly_detection.kql  # creates alert functions
-   ```
-4. Verify data is flowing:
-   ```kql
-   price_raw | count
-   price_silver | take 5
-   price_gold | take 5
-   DetectPriceSpikes(1.0, 60s)
-   ```
-5. Build **RTI Dashboard** → `Crypto Live Dashboard` (see `docs/fabric_setup.md`)
-
-### Load testing
+Run a broker-acknowledgement load test:
 
 ```bash
-cd Pipeline
-
-# 100 eps for 60s against local Kafka
-python scripts/load_test.py --eps 100 --duration 60 --target kafka
-
-# 500 eps for 120s against Azure Event Hub
-python scripts/load_test.py --eps 500 --duration 120 --target eventhub
-
-# Results saved to scripts/results/load_test_<timestamp>.json
+.venv/bin/python scripts/load_test.py --eps 1000 --duration 60 --target kafka
 ```
 
----
+Reproduce the KQL logic after starting Kustainer on port 8080:
 
-## Event Schema
-
-Each event published to Event Hub / Kafka:
-
-```json
-{
-  "event_id":       "uuid-v4",
-  "symbol":         "BTC-USD",
-  "price":          71392.58,
-  "volume_24h":     12237.61,
-  "market_cap":     1412938472000.0,
-  "timestamp_utc":  "2026-03-13T20:57:19.631Z",
-  "source":         "coinbase_ws",
-  "sequence":       4001,
-  "ingestion_time": "2026-03-13T20:57:23.670Z",
-  "raw_payload":    "{...}"
-}
+```bash
+.venv/bin/python scripts/kql_reproduction.py \
+  --capture scripts/results/capture_batch50_20260905_094315.jsonl
 ```
 
-`latency_ms = ingestion_time − timestamp_utc` is computed in the Silver layer and stored per-event for performance analysis.
+The large raw JSON-lines captures are retained outside Git. Canonical reports contain their SHA-256 values; a third party without those files can repeat the method on a new live capture but cannot reconstruct the exact historical sample.
 
----
+## Azure and Fabric deployment boundary
 
-## Anomaly Detection
+`infra/main.bicep` defines the Azure network, managed identity, Event Hub, Key Vault, private endpoints, and DNS links. The deployment workflow expects an existing Azure Container Registry, `AcrPull` assignment, and GitHub OIDC federation. It is manual-only so that pushing code cannot restart the always-running ACI resource after a planned cost shutdown.
 
-Built as KQL stored functions on top of the Gold layer:
+[`docs/fabric_setup.md`](docs/fabric_setup.md) records the demonstration's temporary public-endpoint/SAS connection and dashboard steps. A private Eventstream source additionally requires a Fabric managed private endpoint and Azure approval as described in [Microsoft's Eventstream guidance](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/set-up-private-endpoint); that Fabric-side path was not deployed in this study.
+
+The repaired source uses managed identity for the generator and private Azure networking. That path has static contract tests but was not deployed live during the final repair; it must be validated in an Azure/Fabric environment before production use.
+
+## Event and alert semantics
+
+`latency_ms = ingestion_time - timestamp_utc` is stamped before broker publication. It covers exchange-to-generator transit, parsing, buffer wait, and serialization—not broker acknowledgement or Fabric ingestion.
 
 ```kql
--- Price spike > 2% in last 60 seconds
-DetectPriceSpikes(2.0, 60s)
-
--- Volume surge > 3x baseline
-DetectVolumeSurges(3.0, 10m)
-
--- Volatility ranking across all symbols
+DetectPriceSpikes(0.5, 60s)
+DetectVolume24hSnapshotChange(2.0, 10m)
 GetVolatility(1h)
 ```
 
-Alerts are classified as `LOW / MEDIUM / HIGH / CRITICAL` based on the magnitude of the move.
-
----
-
-## Security Architecture
-
-### Actual thesis setup
-```
-GitHub Actions (OIDC — no client secret stored)
-  └─ azure/login@v2 exchanges OIDC token for short-lived Azure access token
-       └─ Builds Docker image → pushes to ACR (authenticated via OIDC session)
-            └─ Deploys to Azure Container Instances (ACI, West Europe)
-                 └─ ACI pulls image using ACR admin credentials (stored as GitHub secret)
-                      └─ Generator reads EVENTHUB_CONNECTION_STRING from secure env var
-                           └─ Publishes via AMQP to Event Hub (generator-policy, Send only)
-                                └─ Fabric Eventstream (fabric-listen-policy, Listen only)
-                                     └─ price_raw → price_silver → price_gold (KQL Database)
-                                          └─ RTI Dashboard (30s refresh)
-```
-
-**OIDC scope:** GitHub Actions → Azure login uses OIDC (no `AZURE_CLIENT_SECRET`). ACI image pull from ACR uses admin credentials stored as a GitHub secret — ACI does not support Managed Identity for ACR pull without additional configuration. This is a known limitation documented in Chapter 6.
-
-### Production / enterprise equivalent
-
-**Authentication — Managed Identity (no secrets)**
-```
-Azure Container Instance
-  └─ Managed Identity (no password, no .env secrets)
-       └─ Azure AD issues JWT token automatically
-            └─ Event Hub validates token — no connection string needed
-ACI → ACR pull via Managed Identity (AcrPull role) — no admin credentials needed
-```
-Managed Identity eliminates all stored credentials. The container proves who it is to Azure AD, which issues a short-lived JWT — no connection strings, no admin passwords.
-
-**Authorization — RBAC (least privilege)**
-
-| Component | Role granted |
-|-----------|-------------|
-| Generator container | Event Hub Data Sender |
-| Fabric Eventstream | Event Hub Data Receiver |
-| Analysts | KQL Database Viewer |
-| No one | Delete / admin rights |
-
-**Network — VNet + Private Endpoints**
-```
-Public internet
-    │
-[Event Hub firewall]  ← whitelist only ACI outbound IP
-    │
-Event Hub
-    │
-[Private Endpoint]    ← Fabric ↔ Event Hub over Azure internal network
-    │                   never traverses public internet
-Fabric KQL
-```
-
-**Encryption**
-- In transit: TLS 1.2+ on all connections (Kafka protocol, AMQP, REST)
-- At rest: KQL Database encrypted AES-256, keys managed by Azure Key Vault
-
-**Protocols**
-- **Kafka protocol** — used by the generator (open standard, runs over TLS)
-- **AMQP** (Advanced Message Queuing Protocol) — Event Hub's native protocol, used internally by Fabric Eventstream
-- Event Hub translates between the two transparently
-
-This thesis uses connection string auth and a public Event Hub endpoint for simplicity. The table above describes the hardening steps required for a production deployment.
-
----
-
-## Thesis Context
-
-This project is the practical component of a Master's thesis investigating Microsoft Fabric's Real-Time Intelligence capabilities. The thesis evaluates:
-
-- End-to-end latency from Coinbase API → Fabric KQL Dashboard
-- Maximum sustainable throughput before lag accumulates
-- The medallion architecture pattern within KQL Database (no Spark/notebooks)
-- Practical challenges and limitations of the platform
-
-**Research question:** *How can Microsoft Fabric Real-Time Intelligence be used to build a real-time streaming pipeline with medallion architecture?*
+`DetectPriceSpikes` uses its supplied live lookback. The reproduction harness validates 60-second and 120-second behavior with controlled recent events. These functions are monitoring examples, not trading advice.

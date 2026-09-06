@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "validated_at_utc": "2026-09-06",
+  "purpose": "Operational revalidation of the already reported cloud architecture; not a benchmark repetition or capacity test.",
+  "environment": {
+    "azure_region": "North Europe",
+    "fabric_region": "Sweden Central",
+    "fabric_capacity": "Trial",
+    "event_hub": {
+      "tier": "Standard",
+      "partitions": 4,
+      "throughput_units": 2,
+      "retention_days": 7
+    },
+    "fabric": {
+      "workspace": "Realtime Intelligence Thesis",
+      "eventstream": "crypto-eventstream",
+      "eventhouse": "crypto-realtime",
+      "kql_database": "crypto"
+    },
+    "kusto": {
+      "build_version": "1.0.9741.10129",
+      "product_version": "2026.09.02.0524-2635-6e3ec92-WeeklyStaging"
+    }
+  },
+  "measurement_boundary": "Generator event timestamp through Azure Event Hubs and Fabric Eventstream to Kusto price_raw ingestion_time() commit. It does not isolate component latencies or measure Gold or dashboard refresh.",
+  "controlled_run": {
+    "load_result_file": "load_test_v2_100eps_20260906_055950_822567.json",
+    "target_events_per_second": 100,
+    "duration_seconds": 10,
+    "start_utc": "2026-09-06T05:59:40.767076+00:00",
+    "finish_utc": "2026-09-06T05:59:50.822567+00:00",
+    "scheduled": 1000,
+    "generated": 1000,
+    "broker_acknowledged": 1000,
+    "send_errors": 0,
+    "queue_overflows": 0,
+    "broker_acknowledged_rate_eps": 99.451,
+    "bronze_rows": 1000,
+    "bronze_distinct_ids": 1000,
+    "silver_rows": 1000,
+    "silver_distinct_ids": 1000,
+    "bronze_missing_in_silver": 0,
+    "silver_missing_in_bronze": 0,
+    "missing_sequences": 0,
+    "commit_latency_ms": {
+      "p50": 2293,
+      "p95": 4121,
+      "p99": 4371
+    }
+  },
+  "event_hub_monitoring_context": {
+    "window_start_utc": "2026-09-06T05:58:00Z",
+    "window_end_utc": "2026-09-06T06:05:00Z",
+    "incoming_messages": 3650,
+    "outgoing_messages": 6250,
+    "interpretation": "Broad namespace monitoring window confirms producer and consumer activity but includes concurrent live-generator traffic and is not used for run-specific reconciliation."
+  },
+  "visual_evidence": {
+    "eventstream": "docs/figures/fig_fabric_eventstream_live.png",
+    "kusto_engine": "docs/figures/fig_fabric_kql_engine.png",
+    "azure_inventory": "docs/figures/fig_azure_resource_group.png"
+  },
+  "post_validation_controls": {
+    "verified_at_utc": "2026-09-06T06:37:44Z",
+    "generator_stopped": true,
+    "temporary_public_event_hub_access_disabled": true,
+    "temporary_event_hub_policies_revoked": true,
+    "retained_resources_may_incur_baseline_cost": true
+  },
+  "privacy": {
+    "credentials_in_report": false,
+    "account_or_subscription_identifiers_in_report": false
+  }
+}

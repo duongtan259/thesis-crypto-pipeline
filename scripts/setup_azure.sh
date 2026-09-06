@@ -12,7 +12,7 @@ set -euo pipefail
 trap 'echo ""; echo "ERROR: Setup failed at line $LINENO — check output above"; exit 1' ERR
 
 RG="rg-thesis-fabric"
-LOCATION="westeurope"
+LOCATION="northeurope"
 PREFIX="thesis-crypto"
 
 echo "==> Logging in to Azure..."
@@ -38,18 +38,9 @@ DEPLOY_OUT=$(az deployment group create \
 
 # Extract outputs
 EH_FQDN=$(echo "$DEPLOY_OUT"           | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['eventHubFqdn']['value'])")
-KV_URI=$(echo "$DEPLOY_OUT"            | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['keyVaultUri']['value'])")
 IDENTITY_CLIENT_ID=$(echo "$DEPLOY_OUT"| python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['generatorIdentityClientId']['value'])")
 IDENTITY_ID=$(echo "$DEPLOY_OUT"       | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['generatorIdentityId']['value'])")
 ACI_SUBNET_ID=$(echo "$DEPLOY_OUT"     | python3 -c "import sys,json; print(json.load(sys.stdin)['properties']['outputs']['aciSubnetId']['value'])")
-
-echo ""
-echo "==> Storing Event Hub namespace in Key Vault (so generator fetches it at runtime)..."
-az keyvault secret set \
-  --vault-name "${PREFIX}-kv" \
-  --name "eventhub-namespace" \
-  --value "$EH_FQDN" \
-  --output none
 
 echo "==> Infrastructure deployed successfully."
 echo ""
@@ -59,7 +50,6 @@ echo "════════════════════════�
 echo ""
 echo "  Auth model:         Managed Identity (OIDC — no secrets)"
 echo "  Event Hub FQDN:     $EH_FQDN"
-echo "  Key Vault URI:      $KV_URI"
 echo "  Identity Client ID: $IDENTITY_CLIENT_ID"
 echo "  ACI Subnet ID:      $ACI_SUBNET_ID"
 echo ""
@@ -69,6 +59,8 @@ echo "  az container create \\"
 echo "    --resource-group $RG \\"
 echo "    --name crypto-generator \\"
 echo "    --image thesiscryptoacr.azurecr.io/crypto-generator:latest \\"
+echo "    --registry-login-server thesiscryptoacr.azurecr.io \\"
+echo "    --acr-identity $IDENTITY_ID \\"
 echo "    --assign-identity $IDENTITY_ID \\"
 echo "    --subnet $ACI_SUBNET_ID \\"
 echo "    --environment-variables \\"

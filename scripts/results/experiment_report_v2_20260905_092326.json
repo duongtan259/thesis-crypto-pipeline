@@ -1,0 +1,394 @@
+{
+  "schema_version": 2,
+  "analysed_at": "2026-09-05T09:23:26+00:00",
+  "manifest": "capture_manifest_20260905_094315.json",
+  "provenance": {
+    "git_commit": "1b391bd59d625d69b04584cef6054a07a5ee0dfd",
+    "manifest_sha256": "c166404cf9dd131dff0042d1f71b408507e4f1aff9864495a2a3a2ea80454d3f",
+    "input_sha256": {
+      "capture_batch1_20260905_094315.jsonl": "246adf050a5bed0781fadf58e1e3474d854f54fe7e143ba1723ba6aadba03443",
+      "capture_batch10_20260905_094315.jsonl": "8e636680a6c9f6d4bc7e7c325c16773795f69e90fd19c94022445763a4a0abab",
+      "capture_batch50_20260905_094315.jsonl": "688ad2efbd8bbfd15ed43fb01b15f43eb3bb0b4ae0766225097665bf6f47445f",
+      "capture_batch100_20260905_094315.jsonl": "705995d0cd209150a3b17c9c4c2e1a6ca623a91e15e514f2d23ead3205a815ef"
+    },
+    "selection": "source=coinbase_ws; remove each arm's final partial flush; intersect event_id across all arms; preserve B=1 order",
+    "common_cohort_events": 18000
+  },
+  "capture": {
+    "captured_at": "2026-09-05T10:13:15+03:00",
+    "duration_s": 1800,
+    "events_received": 18089,
+    "arrival_rate_eps": 10.049,
+    "symbols": [
+      "BTC-USD",
+      "ETH-USD",
+      "SOL-USD",
+      "BNB-USD",
+      "XRP-USD"
+    ]
+  },
+  "per_batch_size": {
+    "1": {
+      "count": 18000,
+      "p50": 66,
+      "p95": 160,
+      "p99": 346,
+      "mean": 79,
+      "min": 0,
+      "max": 2533,
+      "sd": 87,
+      "batches": 18000,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 12,
+      "lag1_autocorrelation_batch_means": 0.861,
+      "ci95_half_width": 3.8,
+      "ci95": [
+        75,
+        83
+      ],
+      "ci95_batch_means_independent": [
+        78,
+        80
+      ],
+      "ci95_half_width_batch_means_independent": 1.3,
+      "ci95_half_width_naive_events_independent": 1.3
+    },
+    "10": {
+      "count": 18000,
+      "p50": 455,
+      "p95": 1273,
+      "p99": 1780,
+      "mean": 525,
+      "min": 38,
+      "max": 3563,
+      "sd": 394,
+      "batches": 1800,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 7,
+      "lag1_autocorrelation_batch_means": 0.319,
+      "ci95_half_width": 15.8,
+      "ci95": [
+        509,
+        541
+      ],
+      "ci95_batch_means_independent": [
+        515,
+        535
+      ],
+      "ci95_half_width_batch_means_independent": 10.5,
+      "ci95_half_width_naive_events_independent": 5.8
+    },
+    "50": {
+      "count": 18000,
+      "p50": 2330,
+      "p95": 5529,
+      "p99": 6973,
+      "mean": 2516,
+      "min": 38,
+      "max": 10943,
+      "sd": 1673,
+      "batches": 360,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 5,
+      "lag1_autocorrelation_batch_means": 0.344,
+      "ci95_half_width": 109.1,
+      "ci95": [
+        2407,
+        2625
+      ],
+      "ci95_batch_means_independent": [
+        2441,
+        2592
+      ],
+      "ci95_half_width_batch_means_independent": 75.5,
+      "ci95_half_width_naive_events_independent": 24.4
+    },
+    "100": {
+      "count": 18000,
+      "p50": 4777,
+      "p95": 10683,
+      "p99": 13429,
+      "mean": 5041,
+      "min": 40,
+      "max": 18254,
+      "sd": 3255,
+      "batches": 180,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 4,
+      "lag1_autocorrelation_batch_means": 0.278,
+      "ci95_half_width": 253.2,
+      "ci95": [
+        4788,
+        5294
+      ],
+      "ci95_batch_means_independent": [
+        4859,
+        5223
+      ],
+      "ci95_half_width_batch_means_independent": 182.0,
+      "ci95_half_width_naive_events_independent": 47.6
+    }
+  },
+  "model_test": {
+    "arrival_rate_eps": 10.049,
+    "transit_ms_from_batch1": 79,
+    "calibration_arm": "B=1 supplies T; no B>1 outcome is fitted",
+    "held_out_arms": [
+      10,
+      50,
+      100
+    ],
+    "rows": [
+      {
+        "batch_size": 1,
+        "observed_mean_ms": 79,
+        "predicted_mean_ms": 79,
+        "error_ms": 0,
+        "error_pct": 0.0
+      },
+      {
+        "batch_size": 10,
+        "observed_mean_ms": 525,
+        "predicted_mean_ms": 527,
+        "error_ms": -2,
+        "error_pct": -0.3
+      },
+      {
+        "batch_size": 50,
+        "observed_mean_ms": 2516,
+        "predicted_mean_ms": 2517,
+        "error_ms": -1,
+        "error_pct": -0.0
+      },
+      {
+        "batch_size": 100,
+        "observed_mean_ms": 5041,
+        "predicted_mean_ms": 5005,
+        "error_ms": 36,
+        "error_pct": 0.7
+      }
+    ],
+    "fitted_slope_ms_per_event": 50.12,
+    "model_slope_ms_per_event": 49.76,
+    "fitted_intercept_ms": 23,
+    "r_squared": 1.0
+  },
+  "per_symbol_batch50": {
+    "BTC-USD": {
+      "count": 5141,
+      "p50": 2357,
+      "p95": 5603,
+      "p99": 7214,
+      "mean": 2573,
+      "min": 39,
+      "max": 10937,
+      "sd": 1715,
+      "batches": 5141,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 9,
+      "lag1_autocorrelation_batch_means": 0.711,
+      "ci95_half_width": 85.0,
+      "ci95": [
+        2488,
+        2658
+      ],
+      "ci95_batch_means_independent": [
+        2526,
+        2620
+      ],
+      "ci95_half_width_batch_means_independent": 46.9,
+      "ci95_half_width_naive_events_independent": 46.9
+    },
+    "ETH-USD": {
+      "count": 3985,
+      "p50": 2363,
+      "p95": 5537,
+      "p99": 6694,
+      "mean": 2534,
+      "min": 38,
+      "max": 8835,
+      "sd": 1663,
+      "batches": 3985,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 9,
+      "lag1_autocorrelation_batch_means": 0.639,
+      "ci95_half_width": 85.7,
+      "ci95": [
+        2448,
+        2620
+      ],
+      "ci95_batch_means_independent": [
+        2482,
+        2586
+      ],
+      "ci95_half_width_batch_means_independent": 51.6,
+      "ci95_half_width_naive_events_independent": 51.6
+    },
+    "SOL-USD": {
+      "count": 3292,
+      "p50": 2300,
+      "p95": 5500,
+      "p99": 7081,
+      "mean": 2478,
+      "min": 39,
+      "max": 10943,
+      "sd": 1663,
+      "batches": 3292,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 8,
+      "lag1_autocorrelation_batch_means": 0.59,
+      "ci95_half_width": 94.1,
+      "ci95": [
+        2384,
+        2572
+      ],
+      "ci95_batch_means_independent": [
+        2421,
+        2535
+      ],
+      "ci95_half_width_batch_means_independent": 56.8,
+      "ci95_half_width_naive_events_independent": 56.8
+    },
+    "XRP-USD": {
+      "count": 2996,
+      "p50": 2382,
+      "p95": 5602,
+      "p99": 7183,
+      "mean": 2526,
+      "min": 39,
+      "max": 9887,
+      "sd": 1709,
+      "batches": 2996,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 8,
+      "lag1_autocorrelation_batch_means": 0.584,
+      "ci95_half_width": 99.8,
+      "ci95": [
+        2426,
+        2626
+      ],
+      "ci95_batch_means_independent": [
+        2465,
+        2587
+      ],
+      "ci95_half_width_batch_means_independent": 61.2,
+      "ci95_half_width_naive_events_independent": 61.2
+    },
+    "BNB-USD": {
+      "count": 2586,
+      "p50": 2257,
+      "p95": 5195,
+      "p99": 6760,
+      "mean": 2414,
+      "min": 38,
+      "max": 8862,
+      "sd": 1564,
+      "batches": 2586,
+      "ci_method": "Newey-West HAC over batch means",
+      "hac_lag_batches": 8,
+      "lag1_autocorrelation_batch_means": 0.484,
+      "ci95_half_width": 82.6,
+      "ci95": [
+        2332,
+        2497
+      ],
+      "ci95_batch_means_independent": [
+        2354,
+        2475
+      ],
+      "ci95_half_width_batch_means_independent": 60.3,
+      "ci95_half_width_naive_events_independent": 60.3
+    }
+  },
+  "load_test": {
+    "test_date": "20260905",
+    "requested_duration_s": 60.0,
+    "per_target": [
+      {
+        "target_eps": 100.0,
+        "runs": 3,
+        "mean_achieved_eps": 99.9,
+        "sd_achieved_eps": 0.0,
+        "min_achieved_eps": 99.9,
+        "max_achieved_eps": 99.9,
+        "total_errors": 0,
+        "total_sent": 18000,
+        "attainment_pct": 99.9,
+        "files": [
+          "load_test_v2_100eps_20260905_083216_016217.json",
+          "load_test_v2_100eps_20260905_083516_840636.json",
+          "load_test_v2_100eps_20260905_083817_572049.json"
+        ]
+      },
+      {
+        "target_eps": 500.0,
+        "runs": 3,
+        "mean_achieved_eps": 499.4,
+        "sd_achieved_eps": 0.1,
+        "min_achieved_eps": 499.3,
+        "max_achieved_eps": 499.4,
+        "total_errors": 0,
+        "total_sent": 90000,
+        "attainment_pct": 99.9,
+        "files": [
+          "load_test_v2_500eps_20260905_083316_269334.json",
+          "load_test_v2_500eps_20260905_083617_096133.json",
+          "load_test_v2_500eps_20260905_083917_824173.json"
+        ]
+      },
+      {
+        "target_eps": 1000.0,
+        "runs": 3,
+        "mean_achieved_eps": 998.9,
+        "sd_achieved_eps": 0.1,
+        "min_achieved_eps": 998.8,
+        "max_achieved_eps": 999.0,
+        "total_errors": 0,
+        "total_sent": 180000,
+        "attainment_pct": 99.9,
+        "files": [
+          "load_test_v2_1000eps_20260905_083416_542271.json",
+          "load_test_v2_1000eps_20260905_083717_331189.json",
+          "load_test_v2_1000eps_20260905_084018_085838.json"
+        ]
+      }
+    ]
+  },
+  "latency_decomposition": [
+    {
+      "segment": "Exchange \u2192 serialisation (B = 1 baseline)",
+      "value_ms": 79,
+      "measured": true
+    },
+    {
+      "segment": "Generator batch buffer (B = 50)",
+      "value_ms": 2437.3151606666665,
+      "measured": true
+    },
+    {
+      "segment": "Broker acknowledgement",
+      "value_ms": null,
+      "measured": false
+    },
+    {
+      "segment": "Event Hub \u2192 Eventstream",
+      "value_ms": null,
+      "measured": false
+    },
+    {
+      "segment": "Eventstream \u2192 Bronze",
+      "value_ms": null,
+      "measured": false
+    },
+    {
+      "segment": "Update policy Bronze \u2192 Silver",
+      "value_ms": null,
+      "measured": false
+    },
+    {
+      "segment": "Materialized view Silver \u2192 Gold",
+      "value_ms": null,
+      "measured": false
+    }
+  ]
+}

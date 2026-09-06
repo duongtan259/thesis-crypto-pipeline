@@ -1,178 +1,332 @@
+"""Broker-acknowledged synthetic load test for Kafka or Azure Event Hubs.
+
+The scheduler follows absolute monotonic deadlines. Producing an event and waiting
+for broker acknowledgement therefore do not get added to every pacing interval.
+The result distinguishes scheduled, generated, and broker-acknowledged events;
+acknowledgement is not presented as proof of downstream losslessness.
 """
-Load test script — pumps synthetic crypto events at configurable rates
-to stress-test the pipeline throughput and measure Fabric's limits.
 
-Usage:
-    # Test at 500 events/sec for 2 minutes, publishing to local Kafka
-    python scripts/load_test.py --eps 500 --duration 120 --target kafka
+from __future__ import annotations
 
-    # Test at 1000 events/sec, publishing to Azure Event Hub
-    python scripts/load_test.py --eps 1000 --duration 60 --target eventhub
-
-Results are written to: scripts/results/load_test_<timestamp>.json
-"""
 import argparse
 import asyncio
 import json
+import math
 import os
 import random
 import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-from uuid import uuid4
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "generator"))
 
-SYMBOLS = ["BTC-USD", "ETH-USD", "SOL-USD", "BNB-USD", "XRP-USD",
-           "ADA-USD", "DOGE-USD", "AVAX-USD", "DOT-USD", "MATIC-USD"]
+from models.price_event import PriceEvent
+
+SYMBOLS = [
+    "BTC-USD",
+    "ETH-USD",
+    "SOL-USD",
+    "BNB-USD",
+    "XRP-USD",
+    "ADA-USD",
+    "DOGE-USD",
+    "AVAX-USD",
+    "DOT-USD",
+    "MATIC-USD",
+]
 
 BASE_PRICES = {
-    "BTC-USD": 70000, "ETH-USD": 2100, "SOL-USD": 90,
-    "BNB-USD": 650,   "XRP-USD": 1.4,  "ADA-USD": 0.45,
-    "DOGE-USD": 0.12, "AVAX-USD": 35,  "DOT-USD": 7.5, "MATIC-USD": 0.9,
+    "BTC-USD": 70_000,
+    "ETH-USD": 2_100,
+    "SOL-USD": 90,
+    "BNB-USD": 650,
+    "XRP-USD": 1.4,
+    "ADA-USD": 0.45,
+    "DOGE-USD": 0.12,
+    "AVAX-USD": 35,
+    "DOT-USD": 7.5,
+    "MATIC-USD": 0.9,
 }
 
+_STOP = object()
 
-def make_event(sequence: int) -> bytes:
+
+def make_event(sequence: int) -> PriceEvent:
+    """Create one schema-valid synthetic ticker event."""
     symbol = random.choice(SYMBOLS)
     base = BASE_PRICES[symbol]
-    price = base * (1 + random.gauss(0, 0.001))  # ±0.1% noise
-    event = {
-        "event_id":      str(uuid4()),
-        "symbol":        symbol,
-        "price":         round(price, 6),
-        "volume_24h":    round(random.uniform(1000, 1_000_000), 2),
-        "market_cap":    round(price * random.uniform(1e9, 1e12), 2),
-        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
-        "source":        "load_test",
-        "sequence":      sequence,
-        "ingestion_time": datetime.now(timezone.utc).isoformat(),
-        "raw_payload":   "{}",
+    price = base * (1 + random.gauss(0, 0.001))
+    return PriceEvent(
+        symbol=symbol,
+        price=round(price, 6),
+        volume_24h=round(random.uniform(1_000, 1_000_000), 2),
+        market_cap=round(price * random.uniform(1e9, 1e12), 2),
+        timestamp_utc=datetime.now(timezone.utc),
+        source="load_test",
+        sequence=sequence,
+    )
+
+
+def scheduled_deadline(start: float, sequence: int, eps: float) -> float:
+    """Return the absolute deadline for a zero-based event sequence."""
+    if eps <= 0:
+        raise ValueError("eps must be greater than zero")
+    return start + sequence / eps
+
+
+def _nearest_rank(values: list[float], percentile: float) -> float | None:
+    if not values:
+        return None
+    ordered = sorted(values)
+    rank = max(1, math.ceil(percentile / 100 * len(ordered)))
+    return ordered[rank - 1]
+
+
+def summarise_latencies(values_ms: list[float]) -> dict[str, float | int | None]:
+    """Summarise per-batch acknowledgement durations."""
+    if not values_ms:
+        return {
+            "count": 0,
+            "mean_ms": None,
+            "p50_ms": None,
+            "p95_ms": None,
+            "p99_ms": None,
+            "max_ms": None,
+        }
+    return {
+        "count": len(values_ms),
+        "mean_ms": round(sum(values_ms) / len(values_ms), 3),
+        "p50_ms": round(_nearest_rank(values_ms, 50) or 0.0, 3),
+        "p95_ms": round(_nearest_rank(values_ms, 95) or 0.0, 3),
+        "p99_ms": round(_nearest_rank(values_ms, 99) or 0.0, 3),
+        "max_ms": round(max(values_ms), 3),
     }
-    return json.dumps(event).encode("utf-8")
 
 
-async def run_load_test(eps: int, duration: int, target: str, batch_size: int = 100):
-    from dotenv import load_dotenv
-    load_dotenv(Path(__file__).parent.parent / ".env")
+def build_result(
+    *,
+    eps: float,
+    requested_duration_s: float,
+    target: str,
+    batch_size: int,
+    queue_size: int,
+    scheduled: int,
+    generated: int,
+    acknowledged: int,
+    queue_overflows: int,
+    errors: int,
+    batches: int,
+    elapsed_s: float,
+    ack_latencies_ms: list[float],
+    started_at: str,
+    finished_at: str,
+) -> dict[str, Any]:
+    """Build a result whose field names encode the supported claims."""
+    divisor = elapsed_s if elapsed_s > 0 else 1.0
+    attempted = acknowledged + errors
+    return {
+        "schema_version": 2,
+        "test_config": {
+            "target_eps": eps,
+            "requested_duration_s": requested_duration_s,
+            "target": target,
+            "batch_size": batch_size,
+            "queue_size": queue_size,
+            "pacing": "absolute_monotonic_deadlines",
+        },
+        "counts": {
+            "scheduled": scheduled,
+            "generated": generated,
+            "broker_acknowledged": acknowledged,
+            "queue_overflows": queue_overflows,
+            "errors": errors,
+        },
+        "rates_eps": {
+            "scheduled": round(scheduled / divisor, 3),
+            "generated": round(generated / divisor, 3),
+            "broker_acknowledged": round(acknowledged / divisor, 3),
+        },
+        "batches": batches,
+        "batch_acknowledgement_latency": summarise_latencies(ack_latencies_ms),
+        "elapsed_s": round(elapsed_s, 6),
+        "broker_acceptance_rate_pct": (
+            round(acknowledged / attempted * 100, 3) if attempted else None
+        ),
+        "started_at": started_at,
+        "finished_at": finished_at,
+        "claims": {
+            "broker_acknowledgement_measured": True,
+            "proves_downstream_losslessness": False,
+        },
+    }
 
-    print(f"\n{'='*55}")
-    print(f"  Load Test: {eps} events/sec for {duration}s → {target}")
-    print(f"{'='*55}\n")
 
+def _publisher(target: str):
     if target == "kafka":
         from publisher.kafka import KafkaPublisher
-        bootstrap = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
-        topic     = os.getenv("KAFKA_TOPIC", "crypto-prices")
-        publisher_ctx = KafkaPublisher(bootstrap, topic)
-    else:
-        from publisher.eventhub import EventHubPublisher
-        conn = os.getenv("EVENTHUB_CONNECTION_STRING", "")
-        name = os.getenv("EVENTHUB_NAME", "crypto-prices")
-        if not conn:
-            print("ERROR: EVENTHUB_CONNECTION_STRING not set in .env")
-            sys.exit(1)
-        publisher_ctx = EventHubPublisher(conn, name)
 
-    interval   = 1.0 / eps
-    sequence   = 0
-    sent_total = 0
-    errors     = 0
-    checkpoints = []  # (elapsed, sent, eps_actual)
-    start = time.monotonic()
+        return KafkaPublisher(
+            os.getenv("KAFKA_BOOTSTRAP", "localhost:9092"),
+            os.getenv("KAFKA_TOPIC", "crypto-prices"),
+        )
 
-    async with publisher_ctx as publisher:
-        buffer = []
-        while True:
-            elapsed = time.monotonic() - start
-            if elapsed >= duration:
-                break
+    from publisher.eventhub import EventHubPublisher
 
-            sequence += 1
-            buffer.append(make_event(sequence))
+    connection_string = os.getenv("EVENTHUB_CONNECTION_STRING", "")
+    namespace = os.getenv("EVENTHUB_NAMESPACE", "")
+    name = os.getenv("EVENTHUB_NAME", "crypto-prices")
+    if connection_string:
+        return EventHubPublisher(
+            eventhub_name=name,
+            connection_string=connection_string,
+        )
+    if namespace:
+        return EventHubPublisher(
+            eventhub_name=name,
+            fully_qualified_namespace=namespace,
+        )
+    raise RuntimeError(
+        "EVENTHUB_CONNECTION_STRING or EVENTHUB_NAMESPACE must be set for eventhub"
+    )
 
-            if len(buffer) >= batch_size:
-                t0 = time.monotonic()
-                try:
-                    if target == "kafka":
-                        for b in buffer:
-                            await publisher._producer.send(publisher._topic, b)
-                        publisher._sent_total += len(buffer)
-                    else:
-                        from azure.eventhub import EventData
-                        batch = await publisher._client.create_batch()
-                        for b in buffer:
-                            try:
-                                batch.add(EventData(b))
-                            except ValueError:
-                                await publisher._client.send_batch(batch)
-                                batch = await publisher._client.create_batch()
-                                batch.add(EventData(b))
-                        if len(batch):
-                            await publisher._client.send_batch(batch)
-                    sent_total += len(buffer)
-                except Exception as e:
-                    errors += len(buffer)
-                    print(f"  Send error: {e}")
-                buffer.clear()
 
-                send_ms  = (time.monotonic() - t0) * 1000
-                eps_real = sent_total / elapsed if elapsed > 0 else 0
-                checkpoints.append({
-                    "elapsed_s":  round(elapsed, 1),
-                    "sent":       sent_total,
-                    "eps_actual": round(eps_real, 1),
-                    "send_ms":    round(send_ms, 1),
-                    "errors":     errors,
-                })
-                print(f"  t={elapsed:5.1f}s | sent={sent_total:>7,} | "
-                      f"eps={eps_real:6.1f} | send={send_ms:5.1f}ms | errors={errors}")
+async def run_load_test(
+    eps: float,
+    duration: float,
+    target: str,
+    batch_size: int = 100,
+    queue_size: int = 10_000,
+    output_dir: Path | None = None,
+) -> dict[str, Any]:
+    """Schedule events independently of broker sending and return measured counts."""
+    from dotenv import load_dotenv
 
-            await asyncio.sleep(interval)
+    if eps <= 0 or duration <= 0 or batch_size <= 0 or queue_size <= 0:
+        raise ValueError("eps, duration, batch_size, and queue_size must be positive")
 
-    elapsed_total = time.monotonic() - start
-    eps_final     = sent_total / elapsed_total
-
-    result = {
-        "test_config": {"target_eps": eps, "duration_s": duration, "target": target, "batch_size": batch_size},
-        "summary": {
-            "sent_total":    sent_total,
-            "errors":        errors,
-            "elapsed_s":     round(elapsed_total, 2),
-            "eps_achieved":  round(eps_final, 1),
-            "success_rate":  round((sent_total / (sent_total + errors)) * 100, 2) if (sent_total + errors) > 0 else 0,
-        },
-        "checkpoints": checkpoints,
-        "timestamp": datetime.now(timezone.utc).isoformat(),
+    load_dotenv(Path(__file__).parent.parent / ".env")
+    publisher_context = _publisher(target)
+    queue: asyncio.Queue[PriceEvent | object] = asyncio.Queue(maxsize=queue_size)
+    counts = {
+        "scheduled": 0,
+        "generated": 0,
+        "acknowledged": 0,
+        "queue_overflows": 0,
+        "errors": 0,
+        "batches": 0,
     }
+    ack_latencies_ms: list[float] = []
+    total_events = int(eps * duration)
+    started_wall = datetime.now(timezone.utc)
+    started = time.monotonic()
 
-    print(f"\n{'='*55}")
-    print("  RESULT")
-    print(f"  Target:    {eps} eps")
-    print(f"  Achieved:  {eps_final:.1f} eps")
-    print(f"  Sent:      {sent_total:,} events")
-    print(f"  Errors:    {errors}")
-    print(f"  Duration:  {elapsed_total:.1f}s")
-    print(f"{'='*55}\n")
+    async def schedule_events() -> None:
+        for index in range(total_events):
+            wait_s = scheduled_deadline(started, index, eps) - time.monotonic()
+            if wait_s > 0:
+                await asyncio.sleep(wait_s)
+            counts["scheduled"] += 1
+            event = make_event(index + 1)
+            counts["generated"] += 1
+            try:
+                queue.put_nowait(event)
+            except asyncio.QueueFull:
+                counts["queue_overflows"] += 1
+        await queue.put(_STOP)
 
-    out_dir = Path(__file__).parent / "results"
+    async def send_events() -> None:
+        async with publisher_context as publisher:
+            batch: list[PriceEvent] = []
+
+            async def flush() -> None:
+                if not batch:
+                    return
+                size = len(batch)
+                before = time.monotonic()
+                try:
+                    accepted = await publisher.send_batch(batch)
+                    counts["acknowledged"] += accepted
+                    counts["errors"] += size - accepted
+                except Exception as exc:  # noqa: BLE001 - SDK failures become evidence
+                    counts["errors"] += size
+                    print(f"send error for batch of {size}: {exc}", file=sys.stderr)
+                finally:
+                    counts["batches"] += 1
+                    ack_latencies_ms.append((time.monotonic() - before) * 1000)
+                    batch.clear()
+
+            while True:
+                item = await queue.get()
+                if item is _STOP:
+                    await flush()
+                    return
+                if not isinstance(item, PriceEvent):
+                    raise TypeError(f"unexpected queue item: {type(item)!r}")
+                batch.append(item)
+                if len(batch) >= batch_size:
+                    await flush()
+
+    await asyncio.gather(schedule_events(), send_events())
+    elapsed = time.monotonic() - started
+    finished_wall = datetime.now(timezone.utc)
+    result = build_result(
+        eps=eps,
+        requested_duration_s=duration,
+        target=target,
+        batch_size=batch_size,
+        queue_size=queue_size,
+        scheduled=counts["scheduled"],
+        generated=counts["generated"],
+        acknowledged=counts["acknowledged"],
+        queue_overflows=counts["queue_overflows"],
+        errors=counts["errors"],
+        batches=counts["batches"],
+        elapsed_s=elapsed,
+        ack_latencies_ms=ack_latencies_ms,
+        started_at=started_wall.isoformat(),
+        finished_at=finished_wall.isoformat(),
+    )
+
+    out_dir = output_dir or Path(__file__).parent / "results"
     out_dir.mkdir(exist_ok=True)
-    ts  = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out = out_dir / f"load_test_{eps}eps_{ts}.json"
-    out.write_text(json.dumps(result, indent=2))
+    stamp = finished_wall.strftime("%Y%m%d_%H%M%S_%f")
+    out = out_dir / f"load_test_v2_{eps:g}eps_{stamp}.json"
+    out.write_text(json.dumps(result, indent=2) + "\n")
+    print(json.dumps(result, indent=2))
     print(f"Results saved to: {out}")
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Pipeline load tester")
-    parser.add_argument("--eps",      type=int,   default=100,     help="Target events per second")
-    parser.add_argument("--duration", type=int,   default=60,      help="Test duration in seconds")
-    parser.add_argument("--target",   type=str,   default="kafka", choices=["kafka", "eventhub"])
-    parser.add_argument("--batch",    type=int,   default=100,     help="Batch size")
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--eps", type=float, default=100, help="scheduled events per second"
+    )
+    parser.add_argument(
+        "--duration", type=float, default=60, help="scheduling duration in seconds"
+    )
+    parser.add_argument("--target", default="kafka", choices=["kafka", "eventhub"])
+    parser.add_argument(
+        "--batch",
+        "--batch-size",
+        dest="batch_size",
+        type=int,
+        default=100,
+        help="events per broker send",
+    )
+    parser.add_argument("--queue-size", type=int, default=10_000)
     args = parser.parse_args()
-    asyncio.run(run_load_test(args.eps, args.duration, args.target, args.batch))
+    asyncio.run(
+        run_load_test(
+            args.eps,
+            args.duration,
+            args.target,
+            args.batch_size,
+            args.queue_size,
+        )
+    )
 
 
 if __name__ == "__main__":

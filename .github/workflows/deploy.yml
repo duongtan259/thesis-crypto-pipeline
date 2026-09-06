@@ -1,17 +1,24 @@
 name: Deploy — Build & Push to Azure
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "generator/**"
-      - "docker/Dockerfile.generator"
-
-  workflow_dispatch:   # allow manual trigger from GitHub UI
+  # Intentionally manual: ACI uses an Always restart policy and therefore must
+  # not be started by an ordinary code push after the validation environment
+  # has been shut down for cost control.
+  workflow_dispatch:
 
 permissions:
   id-token: write   # required for OIDC token request
   contents: read
+
+env:
+  AZURE_RESOURCE_GROUP: rg-thesis-fabric
+  ACR_NAME: thesiscryptoacr
+  ACI_NAME: crypto-generator
+  GENERATOR_IDENTITY_NAME: thesis-crypto-generator-id
+  VNET_NAME: thesis-crypto-vnet
+  ACI_SUBNET_NAME: container-instances
+  EVENTHUB_NAMESPACE: thesis-crypto-eh-ns.servicebus.windows.net
+  EVENTHUB_NAME: crypto-prices
 
 jobs:
   build-and-deploy:
@@ -29,14 +36,41 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Login to Azure Container Registry
-        run: az acr login --name thesiscryptoacr
+        run: az acr login --name "$ACR_NAME"
+
+      - name: Resolve private-network and managed-identity resources
+        run: |
+          IDENTITY_ID=$(az identity show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$GENERATOR_IDENTITY_NAME" \
+            --query id -o tsv)
+          IDENTITY_PRINCIPAL_ID=$(az identity show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$GENERATOR_IDENTITY_NAME" \
+            --query principalId -o tsv)
+          SUBNET_ID=$(az network vnet subnet show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --vnet-name "$VNET_NAME" \
+            --name "$ACI_SUBNET_NAME" \
+            --query id -o tsv)
+          ACR_ID=$(az acr show --name "$ACR_NAME" --query id -o tsv)
+          ACR_PULL=$(az role assignment list \
+            --assignee-object-id "$IDENTITY_PRINCIPAL_ID" \
+            --scope "$ACR_ID" \
+            --query "[?roleDefinitionName=='AcrPull'] | length(@)" -o tsv)
+          [ "$ACR_PULL" -gt 0 ] || {
+            echo "Generator identity needs AcrPull on $ACR_NAME" >&2
+            exit 1
+          }
+          echo "GENERATOR_IDENTITY_ID=$IDENTITY_ID" >> "$GITHUB_ENV"
+          echo "ACI_SUBNET_ID=$SUBNET_ID" >> "$GITHUB_ENV"
 
       - name: Build and push AMD64 image
         run: |
           docker buildx build \
             --platform linux/amd64 \
-            -t thesiscryptoacr.azurecr.io/crypto-generator:latest \
-            -t thesiscryptoacr.azurecr.io/crypto-generator:${{ github.sha }} \
+            -t "$ACR_NAME.azurecr.io/crypto-generator:latest" \
+            -t "$ACR_NAME.azurecr.io/crypto-generator:${{ github.sha }}" \
             -f docker/Dockerfile.generator \
             . \
             --push
@@ -45,37 +79,38 @@ jobs:
         run: |
           # Delete existing container group if present (idempotent redeploy)
           az container delete \
-            --resource-group rg-thesis-fabric \
-            --name crypto-generator \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$ACI_NAME" \
             --yes 2>/dev/null || true
 
           az container create \
-            --resource-group rg-thesis-fabric \
-            --name crypto-generator \
-            --image thesiscryptoacr.azurecr.io/crypto-generator:${{ github.sha }} \
-            --registry-login-server thesiscryptoacr.azurecr.io \
-            --registry-username thesiscryptoacr \
-            --registry-password "$(az acr credential show --name thesiscryptoacr --query 'passwords[0].value' -o tsv)" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$ACI_NAME" \
+            --image "$ACR_NAME.azurecr.io/crypto-generator:${{ github.sha }}" \
+            --registry-login-server "$ACR_NAME.azurecr.io" \
+            --acr-identity "$GENERATOR_IDENTITY_ID" \
+            --assign-identity "$GENERATOR_IDENTITY_ID" \
+            --subnet "$ACI_SUBNET_ID" \
+            --ip-address Private \
             --os-type Linux \
             --environment-variables \
                 USE_LOCAL_KAFKA=false \
                 DATA_SOURCE=coinbase_ws \
                 SYMBOLS="BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD" \
-                EVENTHUB_NAME=crypto-prices \
+                EVENTHUB_NAMESPACE="$EVENTHUB_NAMESPACE" \
+                EVENTHUB_NAME="$EVENTHUB_NAME" \
                 BATCH_SIZE=50 \
-            --secure-environment-variables \
-                EVENTHUB_CONNECTION_STRING="${{ secrets.EVENTHUB_CONNECTION_STRING }}" \
             --cpu 1 --memory 1.5 \
             --restart-policy Always \
-            --location westeurope
+            --location northeurope
 
       - name: Verify deployment
         run: |
           echo "Waiting for container to start..."
           for i in $(seq 1 12); do
             STATE=$(az container show \
-              --resource-group rg-thesis-fabric \
-              --name crypto-generator \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --name "$ACI_NAME" \
               --query instanceView.state -o tsv 2>/dev/null || echo "unknown")
             echo "  [$i/12] Container state: $STATE"
             [ "$STATE" = "Running" ] && break
@@ -85,7 +120,7 @@ jobs:
           echo ""
           echo "==> Container logs:"
           az container logs \
-            --resource-group rg-thesis-fabric \
-            --name crypto-generator
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$ACI_NAME"
           echo ""
           echo "Deployment successful"

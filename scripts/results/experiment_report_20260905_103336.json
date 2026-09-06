@@ -1,0 +1,309 @@
+{
+  "analysed_at": "2026-09-05T10:33:36+03:00",
+  "manifest": "capture_manifest_20260905_094315.json",
+  "capture": {
+    "captured_at": "2026-09-05T10:13:15+03:00",
+    "duration_s": 1800,
+    "events_received": 18089,
+    "arrival_rate_eps": 10.049,
+    "symbols": [
+      "BTC-USD",
+      "ETH-USD",
+      "SOL-USD",
+      "BNB-USD",
+      "XRP-USD"
+    ]
+  },
+  "per_batch_size": {
+    "1": {
+      "count": 18089,
+      "p50": 66,
+      "p95": 160,
+      "p99": 346,
+      "mean": 79,
+      "min": 0,
+      "max": 2533,
+      "sd": 87,
+      "batches": 18089,
+      "ci95_half_width": 1.3,
+      "ci95": [
+        78,
+        80
+      ],
+      "ci95_half_width_naive_events_independent": 1.3
+    },
+    "10": {
+      "count": 18080,
+      "p50": 453,
+      "p95": 1271,
+      "p99": 1780,
+      "mean": 524,
+      "min": 38,
+      "max": 3563,
+      "sd": 394,
+      "batches": 1808,
+      "ci95_half_width": 10.5,
+      "ci95": [
+        513,
+        534
+      ],
+      "ci95_half_width_naive_events_independent": 5.7
+    },
+    "50": {
+      "count": 18050,
+      "p50": 2328,
+      "p95": 5528,
+      "p99": 6973,
+      "mean": 2513,
+      "min": 38,
+      "max": 10943,
+      "sd": 1672,
+      "batches": 361,
+      "ci95_half_width": 75.5,
+      "ci95": [
+        2438,
+        2589
+      ],
+      "ci95_half_width_naive_events_independent": 24.4
+    },
+    "100": {
+      "count": 18000,
+      "p50": 4777,
+      "p95": 10683,
+      "p99": 13429,
+      "mean": 5041,
+      "min": 40,
+      "max": 18254,
+      "sd": 3255,
+      "batches": 180,
+      "ci95_half_width": 182.0,
+      "ci95": [
+        4859,
+        5223
+      ],
+      "ci95_half_width_naive_events_independent": 47.6
+    }
+  },
+  "model_test": {
+    "arrival_rate_eps": 10.049,
+    "transit_ms_from_batch1": 79,
+    "rows": [
+      {
+        "batch_size": 1,
+        "observed_mean_ms": 79,
+        "predicted_mean_ms": 79,
+        "error_ms": 0,
+        "error_pct": 0.0
+      },
+      {
+        "batch_size": 10,
+        "observed_mean_ms": 524,
+        "predicted_mean_ms": 527,
+        "error_ms": -3,
+        "error_pct": -0.5
+      },
+      {
+        "batch_size": 50,
+        "observed_mean_ms": 2513,
+        "predicted_mean_ms": 2517,
+        "error_ms": -4,
+        "error_pct": -0.1
+      },
+      {
+        "batch_size": 100,
+        "observed_mean_ms": 5041,
+        "predicted_mean_ms": 5005,
+        "error_ms": 36,
+        "error_pct": 0.7
+      }
+    ],
+    "fitted_slope_ms_per_event": 50.12,
+    "model_slope_ms_per_event": 49.76,
+    "fitted_intercept_ms": 22,
+    "r_squared": 1.0
+  },
+  "per_symbol_batch50": {
+    "BTC-USD": {
+      "count": 5156,
+      "p50": 2351,
+      "p95": 5603,
+      "p99": 7214,
+      "mean": 2568,
+      "min": 39,
+      "max": 10937,
+      "sd": 1715,
+      "batches": 5156,
+      "ci95_half_width": 46.8,
+      "ci95": [
+        2522,
+        2615
+      ],
+      "ci95_half_width_naive_events_independent": 46.8
+    },
+    "ETH-USD": {
+      "count": 3999,
+      "p50": 2359,
+      "p95": 5537,
+      "p99": 6694,
+      "mean": 2529,
+      "min": 38,
+      "max": 8835,
+      "sd": 1663,
+      "batches": 3999,
+      "ci95_half_width": 51.5,
+      "ci95": [
+        2478,
+        2581
+      ],
+      "ci95_half_width_naive_events_independent": 51.5
+    },
+    "SOL-USD": {
+      "count": 3311,
+      "p50": 2294,
+      "p95": 5478,
+      "p99": 7061,
+      "mean": 2471,
+      "min": 39,
+      "max": 10943,
+      "sd": 1662,
+      "batches": 3311,
+      "ci95_half_width": 56.6,
+      "ci95": [
+        2414,
+        2527
+      ],
+      "ci95_half_width_naive_events_independent": 56.6
+    },
+    "XRP-USD": {
+      "count": 3013,
+      "p50": 2374,
+      "p95": 5598,
+      "p99": 7143,
+      "mean": 2519,
+      "min": 39,
+      "max": 9887,
+      "sd": 1708,
+      "batches": 3013,
+      "ci95_half_width": 61.0,
+      "ci95": [
+        2458,
+        2580
+      ],
+      "ci95_half_width_naive_events_independent": 61.0
+    },
+    "BNB-USD": {
+      "count": 2610,
+      "p50": 2249,
+      "p95": 5130,
+      "p99": 6674,
+      "mean": 2403,
+      "min": 38,
+      "max": 8862,
+      "sd": 1563,
+      "batches": 2610,
+      "ci95_half_width": 60.0,
+      "ci95": [
+        2343,
+        2463
+      ],
+      "ci95_half_width_naive_events_independent": 60.0
+    }
+  },
+  "load_test": {
+    "test_date": "20260905",
+    "per_target": [
+      {
+        "target_eps": 100,
+        "runs": 3,
+        "mean_achieved_eps": 85.5,
+        "sd_achieved_eps": 2.5,
+        "min_achieved_eps": 83.3,
+        "max_achieved_eps": 88.3,
+        "total_errors": 0,
+        "total_sent": 15400,
+        "attainment_pct": 85.5,
+        "files": [
+          "load_test_100eps_20260905_101510.json",
+          "load_test_100eps_20260905_101810.json",
+          "load_test_100eps_20260905_102110.json"
+        ]
+      },
+      {
+        "target_eps": 500,
+        "runs": 3,
+        "mean_achieved_eps": 379.4,
+        "sd_achieved_eps": 7.9,
+        "min_achieved_eps": 373.3,
+        "max_achieved_eps": 388.3,
+        "total_errors": 0,
+        "total_sent": 68300,
+        "attainment_pct": 75.9,
+        "files": [
+          "load_test_500eps_20260905_101610.json",
+          "load_test_500eps_20260905_101910.json",
+          "load_test_500eps_20260905_102211.json"
+        ]
+      },
+      {
+        "target_eps": 1000,
+        "runs": 3,
+        "mean_achieved_eps": 715.6,
+        "sd_achieved_eps": 1.0,
+        "min_achieved_eps": 715.0,
+        "max_achieved_eps": 716.7,
+        "total_errors": 0,
+        "total_sent": 128800,
+        "attainment_pct": 71.6,
+        "files": [
+          "load_test_1000eps_20260905_101710.json",
+          "load_test_1000eps_20260905_102010.json",
+          "load_test_1000eps_20260905_102311.json"
+        ]
+      }
+    ]
+  },
+  "latency_decomposition": [
+    {
+      "segment": "Exchange \u2192 generator (network + parse)",
+      "low_ms": 79,
+      "high_ms": 79,
+      "measured": true
+    },
+    {
+      "segment": "Generator batch buffer (B = 50)",
+      "low_ms": 2434.25248299169,
+      "high_ms": 2434.25248299169,
+      "measured": true
+    },
+    {
+      "segment": "Publish call (broker write)",
+      "low_ms": 4,
+      "high_ms": 8,
+      "measured": true
+    },
+    {
+      "segment": "Event Hub \u2192 Eventstream",
+      "low_ms": 100,
+      "high_ms": 500,
+      "measured": false
+    },
+    {
+      "segment": "Eventstream \u2192 Bronze (KQL micro-batch)",
+      "low_ms": 1000,
+      "high_ms": 5000,
+      "measured": false
+    },
+    {
+      "segment": "Update policy Bronze \u2192 Silver",
+      "low_ms": 0,
+      "high_ms": 100,
+      "measured": false
+    },
+    {
+      "segment": "Materialized view Silver \u2192 Gold",
+      "low_ms": 10000,
+      "high_ms": 60000,
+      "measured": false
+    }
+  ]
+}

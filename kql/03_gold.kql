@@ -1,28 +1,39 @@
 // ════════════════════════════════════════════════════════════════
-// GOLD LAYER — Aggregated OHLCV + latency metrics
+// GOLD LAYER — Deterministic price candles + operational metrics
 // Run after 02_silver.kql
 // Table: price_gold (materialized view on price_silver)
 // ════════════════════════════════════════════════════════════════
 
-// 1-minute OHLCV materialized view
+// 1-minute price-candle materialized view. Coinbase volume_24h is a rolling
+// snapshot, not traded volume inside this window, so the last snapshot is carried
+// forward under an explicit name and is never summed.
 // Automatically kept up to date by Fabric as new data arrives in price_silver
-.create materialized-view with (backfill=true) price_gold on table price_silver
+.create-or-alter materialized-view with (backfill=true) price_gold on table price_silver
 {
     price_silver
     | where is_valid == true
+    | extend
+        window_start      = bin(timestamp_utc, 1m),
+        event_order       = strcat(
+            tostring(timestamp_utc), '|',
+            substring(strcat('00000000000000000000', tostring(sequence)), -20),
+            '|', event_id)
+    | extend
+        open_order        = event_order,
+        close_order       = event_order,
+        open              = price_usd,
+        close             = price_usd,
+        latest_volume_24h = volume_24h
     | summarize
-        open           = take_any(price_usd),
+        arg_min(open_order, open),
+        arg_max(close_order, close, latest_volume_24h),
         high           = max(price_usd),
         low            = min(price_usd),
-        close          = take_any(price_usd),
-        volume         = sum(volume_24h),
         event_count    = count(),
         avg_latency_ms = avg(toreal(latency_ms)),
         p95_latency_ms = percentile(toreal(latency_ms), 95),
         p99_latency_ms = percentile(toreal(latency_ms), 99)
-      by
-        symbol,
-        window_start = bin(timestamp_utc, 1m)
+      by symbol, window_start
 }
 
 // Stored function: latency distribution for any lookback window

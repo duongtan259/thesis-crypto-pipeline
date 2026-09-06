@@ -13,8 +13,10 @@ venv/
 dist/
 build/
 
-# Load test results (large JSON — commit summary separately)
-scripts/results/*.json
+# Measurement outputs. The JSON reports are cited by Chapter 5 of the thesis and are
+# deliberately tracked; the raw JSON-lines captures are ~10 MB each and are the *input*
+# to those reports, so they are excluded. Regenerate with scripts/capture_latency.py.
+scripts/results/*.jsonl
 
 # macOS
 .DS_Store
@@ -26,9 +28,13 @@ scripts/results/*.json
 
 # Docker volumes
 docker/volumes/
+.worktrees/
 
-# Docs — only keep architecture.md and fabric_setup.md
+# Working docs not part of the deliverable
 docs/thesis_plan.md
 docs/implementation_plan.md
 docs/test_results.md
 docs/pipeline_explained.md
+
+# Superseded planning documents kept locally
+docs/archive/

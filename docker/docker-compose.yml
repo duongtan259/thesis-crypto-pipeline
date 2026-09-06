@@ -1,5 +1,3 @@
-version: "3.9"
-
 # ─────────────────────────────────────────────────────────
 # Crypto Price Streaming Pipeline — Local Dev Stack
 #
@@ -11,7 +9,7 @@ version: "3.9"
 #   Local dev (no Azure):
 #     docker compose --profile local up --build
 #
-#   Azure mode (after getting Event Hub connection string):
+#   Azure mode (local credentials or optional dev connection string):
 #     docker compose --profile azure up --build
 # ─────────────────────────────────────────────────────────
 
@@ -94,7 +92,8 @@ services:
     profiles: [azure]
     environment:
       USE_LOCAL_KAFKA: "false"
-      EVENTHUB_CONNECTION_STRING: "${EVENTHUB_CONNECTION_STRING}"
+      EVENTHUB_CONNECTION_STRING: "${EVENTHUB_CONNECTION_STRING:-}"
+      EVENTHUB_NAMESPACE: "${EVENTHUB_NAMESPACE:-thesis-crypto-eh-ns.servicebus.windows.net}"
       EVENTHUB_NAME: "${EVENTHUB_NAME:-crypto-prices}"
       DATA_SOURCE: "${DATA_SOURCE:-coinbase_ws}"
       SYMBOLS: "${SYMBOLS:-BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD}"

@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "test_config": {
+    "target_eps": 100.0,
+    "requested_duration_s": 10.0,
+    "target": "eventhub",
+    "batch_size": 100,
+    "queue_size": 10000,
+    "pacing": "absolute_monotonic_deadlines"
+  },
+  "counts": {
+    "scheduled": 1000,
+    "generated": 1000,
+    "broker_acknowledged": 1000,
+    "queue_overflows": 0,
+    "errors": 0
+  },
+  "rates_eps": {
+    "scheduled": 99.451,
+    "generated": 99.451,
+    "broker_acknowledged": 99.451
+  },
+  "batches": 10,
+  "batch_acknowledgement_latency": {
+    "count": 10,
+    "mean_ms": 258.84,
+    "p50_ms": 62.769,
+    "p95_ms": 1988.141,
+    "p99_ms": 1988.141,
+    "max_ms": 1988.141
+  },
+  "elapsed_s": 10.055213,
+  "broker_acceptance_rate_pct": 100.0,
+  "started_at": "2026-09-06T05:59:40.767076+00:00",
+  "finished_at": "2026-09-06T05:59:50.822567+00:00",
+  "claims": {
+    "broker_acknowledgement_measured": true,
+    "proves_downstream_losslessness": false
+  }
+}

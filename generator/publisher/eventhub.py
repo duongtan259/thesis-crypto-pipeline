@@ -3,17 +3,18 @@ Azure Event Hub publisher.
 Batches events and sends them via AMQP using the azure-eventhub SDK.
 
 Supports two auth modes:
-  - connection_string: for local dev only (stored in Key Vault, fetched at startup)
+  - connection_string: explicit opt-in for local validation; supplied by the caller
   - Managed Identity / OIDC: set connection_string="" and provide fully_qualified_namespace
     Uses DefaultAzureCredential — works with Managed Identity in ACI, or
     Azure CLI credentials locally. No secrets required.
 """
+
 import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from azure.eventhub.aio import EventHubProducerClient
 from azure.eventhub import EventData
+from azure.eventhub.aio import EventHubProducerClient
 from azure.eventhub.exceptions import EventHubError
 
 if TYPE_CHECKING:
@@ -39,22 +40,29 @@ class EventHubPublisher:
 
     async def __aenter__(self):
         if self._connection_string:
-            # Key Vault connection string (dev/thesis)
+            # Explicitly supplied connection string (local validation)
             self._client = EventHubProducerClient.from_connection_string(
                 self._connection_string,
                 eventhub_name=self._eventhub_name,
             )
-            logger.info("EventHub publisher connected via connection string | hub=%s", self._eventhub_name)
+            logger.info(
+                "EventHub publisher connected via connection string | hub=%s",
+                self._eventhub_name,
+            )
         else:
             # Managed Identity / OIDC — no secrets (production)
             from azure.identity.aio import DefaultAzureCredential
+
             credential = DefaultAzureCredential()
             self._client = EventHubProducerClient(
                 fully_qualified_namespace=self._namespace,
                 eventhub_name=self._eventhub_name,
                 credential=credential,
             )
-            logger.info("EventHub publisher connected via Managed Identity | hub=%s", self._eventhub_name)
+            logger.info(
+                "EventHub publisher connected via Managed Identity | hub=%s",
+                self._eventhub_name,
+            )
         return self
 
     async def __aexit__(self, *_):
@@ -74,10 +82,17 @@ class EventHubPublisher:
                 return sent
             except EventHubError as e:
                 if attempt == len(_RETRY_DELAYS):
-                    logger.error("EventHub send failed after %d attempts: %s", attempt, e)
+                    logger.error(
+                        "EventHub send failed after %d attempts: %s", attempt, e
+                    )
                     raise
-                logger.warning("EventHub send failed (attempt %d/%d): %s — retrying in %ds",
-                               attempt, len(_RETRY_DELAYS), e, delay)
+                logger.warning(
+                    "EventHub send failed (attempt %d/%d): %s — retrying in %ds",
+                    attempt,
+                    len(_RETRY_DELAYS),
+                    e,
+                    delay,
+                )
                 await asyncio.sleep(delay)
         return 0
 
@@ -96,7 +111,9 @@ class EventHubPublisher:
                 try:
                     batch.add(data)
                 except ValueError:
-                    logger.error("Event too large to send — skipping | symbol=%s", event.symbol)
+                    logger.error(
+                        "Event too large to send — skipping | symbol=%s", event.symbol
+                    )
         if len(batch) > 0:
             await self._client.send_batch(batch)
             sent += len(batch)

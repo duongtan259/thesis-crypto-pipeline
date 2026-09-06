@@ -3,13 +3,13 @@ CoinGecko REST polling fallback.
 Polls the /coins/markets endpoint on an interval and yields PriceEvent objects.
 Use this when WebSocket is unavailable or for additional pairs.
 """
+
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
-from typing import AsyncIterator
 
 import aiohttp
-
 from models.price_event import PriceEvent
 
 BASE_URL = "https://api.coingecko.com/api/v3"
@@ -32,7 +32,9 @@ SYMBOL_TO_ID = {
 _sequence = 0
 
 
-async def stream_prices(symbols: list[str], poll_interval: float = 10.0) -> AsyncIterator[PriceEvent]:
+async def stream_prices(
+    symbols: list[str], poll_interval: float = 10.0
+) -> AsyncIterator[PriceEvent]:
     global _sequence
 
     coin_ids = [SYMBOL_TO_ID.get(s, s.split("-")[0].lower()) for s in symbols]
@@ -57,7 +59,9 @@ async def stream_prices(symbols: list[str], poll_interval: float = 10.0) -> Asyn
                     timeout=aiohttp.ClientTimeout(total=10),
                 ) as resp:
                     if resp.status == 429:
-                        logger.warning("CoinGecko rate limited — backing off %ds", backoff)
+                        logger.warning(
+                            "CoinGecko rate limited — backing off %ds", backoff
+                        )
                         await asyncio.sleep(backoff)
                         backoff = min(backoff * 2, 300)
                         continue
@@ -68,7 +72,9 @@ async def stream_prices(symbols: list[str], poll_interval: float = 10.0) -> Asyn
 
                     for coin in data:
                         _sequence += 1
-                        symbol = symbol_map.get(coin["id"], f"{coin['symbol'].upper()}-USD")
+                        symbol = symbol_map.get(
+                            coin["id"], f"{coin['symbol'].upper()}-USD"
+                        )
                         yield PriceEvent(
                             symbol=symbol,
                             price=float(coin.get("current_price") or 0),

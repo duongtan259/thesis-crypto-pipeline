@@ -1,0 +1,40 @@
+{
+  "schema_version": 2,
+  "test_config": {
+    "target_eps": 1000.0,
+    "requested_duration_s": 60.0,
+    "target": "kafka",
+    "batch_size": 100,
+    "queue_size": 100000,
+    "pacing": "absolute_monotonic_deadlines"
+  },
+  "counts": {
+    "scheduled": 60000,
+    "generated": 60000,
+    "broker_acknowledged": 60000,
+    "queue_overflows": 0,
+    "errors": 0
+  },
+  "rates_eps": {
+    "scheduled": 998.85,
+    "generated": 998.85,
+    "broker_acknowledged": 998.85
+  },
+  "batches": 600,
+  "batch_acknowledgement_latency": {
+    "count": 600,
+    "mean_ms": 70.608,
+    "p50_ms": 70.438,
+    "p95_ms": 87.346,
+    "p99_ms": 112.196,
+    "max_ms": 134.433
+  },
+  "elapsed_s": 60.069083,
+  "broker_acceptance_rate_pct": 100.0,
+  "started_at": "2026-09-05T08:33:16.473115+00:00",
+  "finished_at": "2026-09-05T08:34:16.542271+00:00",
+  "claims": {
+    "broker_acknowledgement_measured": true,
+    "proves_downstream_losslessness": false
+  }
+}

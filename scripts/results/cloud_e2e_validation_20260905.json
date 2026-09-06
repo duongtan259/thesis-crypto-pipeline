@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "validated_at_utc": "2026-09-05",
+  "environment": {
+    "azure_region": "North Europe",
+    "fabric_region": "Sweden Central",
+    "fabric_capacity": "Trial",
+    "event_hub": {
+      "tier": "Standard",
+      "partitions": 4,
+      "throughput_units": 2,
+      "retention_days": 7
+    },
+    "kusto": {
+      "build_version": "1.0.9741.10129",
+      "product_version": "2026.09.02.0524-2635-6e3ec92-WeeklyStaging"
+    }
+  },
+  "measurement_boundary": "Generator event serialisation through Azure Event Hubs and Fabric Eventstream to Kusto price_raw ingestion_time() commit. It does not isolate component latencies or measure Gold/dashboard refresh.",
+  "runs": [
+    {
+      "target_events_per_second": 100,
+      "duration_seconds": 10,
+      "scheduled": 1000,
+      "bronze_ids": 1000,
+      "silver_ids": 1000,
+      "missing_sequences": 0,
+      "commit_latency_ms": { "p50": 1294, "p95": 2110, "p99": 2113 }
+    },
+    {
+      "target_events_per_second": 500,
+      "duration_seconds": 10,
+      "scheduled": 5000,
+      "bronze_ids": 5000,
+      "silver_ids": 5000,
+      "missing_sequences": 0,
+      "commit_latency_ms": { "p50": 992, "p95": 1550, "p99": 1647 }
+    },
+    {
+      "target_events_per_second": 1000,
+      "duration_seconds": 10,
+      "scheduled": 10000,
+      "bronze_ids": 10000,
+      "silver_ids": 10000,
+      "missing_sequences": 0,
+      "commit_latency_ms": { "p50": 1170, "p95": 1811, "p99": 2007 }
+    }
+  ],
+  "gold_truth_check": {
+    "completed_windows": 50,
+    "silver_events": 21639,
+    "missing_windows": 0,
+    "extra_windows": 0,
+    "open_mismatches": 0,
+    "high_mismatches": 0,
+    "low_mismatches": 0,
+    "close_mismatches": 0,
+    "volume_snapshot_mismatches": 0,
+    "event_count_mismatches": 0
+  },
+  "post_validation_controls": {
+    "generator_stopped": true,
+    "temporary_public_event_hub_access_disabled": true,
+    "temporary_listen_and_load_test_policies_revoked": true
+  }
+}

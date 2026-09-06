@@ -1,0 +1,354 @@
+{
+  "medallion": {
+    "source_events_in_file": 18089,
+    "bronze_rows": 18089,
+    "silver_rows": 18089,
+    "filtered_rows": 0,
+    "filter_rate_pct": 0.0
+  },
+  "latency_kql": [
+    {
+      "p50": 2325.347931983748,
+      "p95": 5514.7307692307695,
+      "p99": 6971.333333333333,
+      "avg_ms": 2509.77107634474,
+      "min_ms": 38.0,
+      "max_ms": 10943.0,
+      "events": 18089
+    }
+  ],
+  "per_symbol_kql": [
+    {
+      "symbol": "BTC-USD",
+      "event_count": 5156,
+      "avg_latency": 2568.5,
+      "p95_latency": 5604.941111111112
+    },
+    {
+      "symbol": "ETH-USD",
+      "event_count": 3999,
+      "avg_latency": 2529.4,
+      "p95_latency": 5532.892063492064
+    },
+    {
+      "symbol": "SOL-USD",
+      "event_count": 3311,
+      "avg_latency": 2470.6,
+      "p95_latency": 5475.15
+    },
+    {
+      "symbol": "XRP-USD",
+      "event_count": 3013,
+      "avg_latency": 2518.6,
+      "p95_latency": 5592.76
+    },
+    {
+      "symbol": "BNB-USD",
+      "event_count": 2610,
+      "avg_latency": 2403.3,
+      "p95_latency": 5143.203125
+    }
+  ],
+  "gold_sample": [
+    {
+      "symbol": "ETH-USD",
+      "window_start": "2026-09-05T07:13:00Z",
+      "open": 2454.99,
+      "high": 2455.07,
+      "low": 2454.11,
+      "close": 2454.99,
+      "volume": 4946066.811253464,
+      "event_count": 56,
+      "avg_latency_ms": 1097.732142857143,
+      "p95_latency_ms": 2213.0,
+      "p99_latency_ms": 2637.0
+    },
+    {
+      "symbol": "XRP-USD",
+      "window_start": "2026-09-05T07:13:00Z",
+      "open": 1.4035,
+      "high": 1.40383,
+      "low": 1.403,
+      "close": 1.4035,
+      "volume": 5338175922.408783,
+      "event_count": 51,
+      "avg_latency_ms": 1146.450980392157,
+      "p95_latency_ms": 2247.0,
+      "p99_latency_ms": 2605.0
+    },
+    {
+      "symbol": "BTC-USD",
+      "window_start": "2026-09-05T07:13:00Z",
+      "open": 79709.97,
+      "high": 79709.98,
+      "low": 79697.98,
+      "close": 79709.97,
+      "volume": 343902.87321225984,
+      "event_count": 58,
+      "avg_latency_ms": 1002.6724137931035,
+      "p95_latency_ms": 2393.0,
+      "p99_latency_ms": 2575.0
+    },
+    {
+      "symbol": "BNB-USD",
+      "window_start": "2026-09-05T07:13:00Z",
+      "open": 731.9,
+      "high": 732.54,
+      "low": 729.47,
+      "close": 731.9,
+      "volume": 413672.2145999998,
+      "event_count": 79,
+      "avg_latency_ms": 1144.5822784810127,
+      "p95_latency_ms": 2339.0,
+      "p99_latency_ms": 2583.0
+    },
+    {
+      "symbol": "SOL-USD",
+      "window_start": "2026-09-05T07:13:00Z",
+      "open": 102.36,
+      "high": 102.401,
+      "low": 102.3,
+      "close": 102.36,
+      "volume": 53011382.5409092,
+      "event_count": 65,
+      "avg_latency_ms": 1165.3846153846155,
+      "p95_latency_ms": 2187.0,
+      "p99_latency_ms": 2359.0
+    }
+  ],
+  "gold_rows": 155,
+  "mv_details": [
+    {
+      "MaterializedViewName": "price_gold",
+      "DatabaseName": "NetDefaultDB",
+      "Folder": null,
+      "DocString": null,
+      "TotalExtents": 2,
+      "TotalExtentSize": 7628.0,
+      "TotalOriginalSize": 9577.0,
+      "TotalRowCount": 7,
+      "HotExtents": 2,
+      "HotExtentSize": 7628.0,
+      "HotOriginalSize": 9577.0,
+      "HotRowCount": 7,
+      "AuthorizedPrincipals": "[]",
+      "RetentionPolicy": "null",
+      "CachingPolicy": "{\n  \"DataHotSpan\": \"3650.00:00:00\",\n  \"IndexHotSpan\": \"3650.00:00:00\"\n}",
+      "ShardingPolicy": "{\n  \"ShardEngineMaxRowCount\": 1048576,\n  \"ShardEngineMaxExtentSizeInMb\": 8192,\n  \"ShardEngineMaxOriginalSizeInMb\": 3072,\n  \"UseShardEngine\": true\n}",
+      "MergePolicy": "{\n  \"RowCountUpperBoundForMerge\": 16000000,\n  \"OriginalSizeMBUpperBoundForMerge\": 30000,\n  \"MaxExtentsToMerge\": 100,\n  \"MaxRangeInHours\": 24,\n  \"AllowRebuild\": true,\n  \"AllowMerge\": true,\n  \"Lookback\": {\n    \"Kind\": \"Default\",\n    \"CustomPeriod\": null\n  },\n  \"Origin\": \"Default\"\n}",
+      "MinExtentsCreationTime": "2026-09-05T07:02:04.1418882Z",
+      "MaxExtentsCreationTime": "2026-09-05T07:02:34.1109155Z",
+      "RowLevelSecurityPolicy": "null"
+    }
+  ],
+  "mv_lag": [
+    {
+      "silver_latest": "2026-09-05T07:13:15.325697Z",
+      "gold_latest": "2026-09-05T07:13:00Z",
+      "lag_to_window_start_seconds": 15,
+      "lag_beyond_window_end_seconds": -45
+    }
+  ],
+  "gold_windows": [
+    {
+      "windows": 155,
+      "symbols": 5,
+      "events_in_gold": 18089,
+      "earliest": "2026-09-05T06:43:00Z",
+      "latest": "2026-09-05T07:13:00Z"
+    }
+  ],
+  "anomaly": {
+    "DetectPriceSpikes(1.0, 60s)": [],
+    "DetectVolumeSurges(2.0, 10m)": [],
+    "GetVolatility(1h)": [
+      {
+        "symbol": "BNB-USD",
+        "volatility_pct": 0.0094,
+        "sample_count": 2609,
+        "price_range": 6.59
+      },
+      {
+        "symbol": "SOL-USD",
+        "volatility_pct": 0.0057,
+        "sample_count": 3310,
+        "price_range": 0.36
+      },
+      {
+        "symbol": "XRP-USD",
+        "volatility_pct": 0.0057,
+        "sample_count": 3012,
+        "price_range": 0.0027
+      },
+      {
+        "symbol": "BTC-USD",
+        "volatility_pct": 0.0035,
+        "sample_count": 5155,
+        "price_range": 76.78
+      },
+      {
+        "symbol": "ETH-USD",
+        "volatility_pct": 0.003,
+        "sample_count": 3998,
+        "price_range": 2.731
+      }
+    ]
+  },
+  "spike_threshold_sweep": [
+    {
+      "threshold_pct": 0.01,
+      "alerts": 242
+    },
+    {
+      "threshold_pct": 0.02,
+      "alerts": 96
+    },
+    {
+      "threshold_pct": 0.05,
+      "alerts": 13
+    },
+    {
+      "threshold_pct": 0.1,
+      "alerts": 7
+    },
+    {
+      "threshold_pct": 0.25,
+      "alerts": 0
+    },
+    {
+      "threshold_pct": 0.5,
+      "alerts": 0
+    },
+    {
+      "threshold_pct": 1.0,
+      "alerts": 0
+    }
+  ],
+  "spike_ground_truth": [
+    {
+      "threshold_pct": 0.01,
+      "moves": 242
+    },
+    {
+      "threshold_pct": 0.02,
+      "moves": 96
+    },
+    {
+      "threshold_pct": 0.05,
+      "moves": 13
+    },
+    {
+      "threshold_pct": 0.1,
+      "moves": 7
+    },
+    {
+      "threshold_pct": 0.25,
+      "moves": 0
+    },
+    {
+      "threshold_pct": 0.5,
+      "moves": 0
+    },
+    {
+      "threshold_pct": 1.0,
+      "moves": 0
+    }
+  ],
+  "events_in_spike_window": 6346,
+  "largest_tick_move": [
+    {
+      "symbol": "BNB-USD",
+      "max_move_pct": 0.18815,
+      "p99_move_pct": 0.03691
+    },
+    {
+      "symbol": "SOL-USD",
+      "max_move_pct": 0.10748,
+      "p99_move_pct": 0.02053
+    },
+    {
+      "symbol": "XRP-USD",
+      "max_move_pct": 0.0876,
+      "p99_move_pct": 0.02138
+    },
+    {
+      "symbol": "ETH-USD",
+      "max_move_pct": 0.04487,
+      "p99_move_pct": 0.01019
+    },
+    {
+      "symbol": "BTC-USD",
+      "max_move_pct": 0.04266,
+      "p99_move_pct": 0.02022
+    }
+  ],
+  "update_policy": [
+    {
+      "PolicyName": "UpdatePolicy",
+      "EntityName": "[NetDefaultDB].[price_silver]",
+      "Policy": "[\n  {\n    \"IsEnabled\": true,\n    \"Source\": \"price_raw\",\n    \"Query\": \"SilverTransform()\",\n    \"IsTransactional\": false,\n    \"PropagateIngestionProperties\": false,\n    \"ManagedIdentity\": null\n  }\n]",
+      "ChildEntities": null,
+      "EntityType": "Table"
+    }
+  ],
+  "silver_invalid_rows": 0,
+  "silver_predicate_test": {
+    "cases": [
+      {
+        "case": "valid_control_a",
+        "expected_in_silver": true,
+        "observed_in_silver": true,
+        "correct": true
+      },
+      {
+        "case": "valid_control_b",
+        "expected_in_silver": true,
+        "observed_in_silver": true,
+        "correct": true
+      },
+      {
+        "case": "null_price",
+        "expected_in_silver": false,
+        "observed_in_silver": false,
+        "correct": true
+      },
+      {
+        "case": "zero_price",
+        "expected_in_silver": false,
+        "observed_in_silver": false,
+        "correct": true
+      },
+      {
+        "case": "negative_price",
+        "expected_in_silver": false,
+        "observed_in_silver": false,
+        "correct": true
+      },
+      {
+        "case": "empty_symbol",
+        "expected_in_silver": false,
+        "observed_in_silver": false,
+        "correct": true
+      }
+    ],
+    "all_correct": true,
+    "injected": 6,
+    "admitted_to_silver": 2,
+    "bronze_before": 18089,
+    "bronze_after": 18095,
+    "silver_before": 18089,
+    "silver_after": 18091
+  },
+  "meta": {
+    "measured_at": "2026-09-05T10:13:52+03:00",
+    "capture_file": "capture_batch50_20260905_094315.jsonl",
+    "engine": {
+      "BuildVersion": "1.0.9743.21968",
+      "BuildTime": "2026-09-04T12:12:16Z",
+      "ServiceType": "Engine",
+      "ProductVersion": "2026.09.04.1205-2635-bcbdee2-master",
+      "ServiceOffering": ""
+    },
+    "note": "Kusto emulator \u2014 same engine as a Fabric KQL Database, but not Fabric F2. Scheduler-dependent results (materialized-view refresh cadence) do not transfer to F2; row counts, filter rate and function output do."
+  }
+}

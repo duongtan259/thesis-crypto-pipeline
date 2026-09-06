@@ -1,0 +1,43 @@
+{
+  "captured_at": "2026-09-05T10:13:15+03:00",
+  "duration_s": 1800,
+  "symbols": [
+    "BTC-USD",
+    "ETH-USD",
+    "SOL-USD",
+    "BNB-USD",
+    "XRP-USD"
+  ],
+  "events_received": 18089,
+  "arrival_rate_eps": 10.049,
+  "outputs": [
+    {
+      "batch_size": 1,
+      "file": "capture_batch1_20260905_094315.jsonl",
+      "events": 18089,
+      "batches": 18089,
+      "final_partial_flush": 0
+    },
+    {
+      "batch_size": 10,
+      "file": "capture_batch10_20260905_094315.jsonl",
+      "events": 18089,
+      "batches": 1809,
+      "final_partial_flush": 9
+    },
+    {
+      "batch_size": 50,
+      "file": "capture_batch50_20260905_094315.jsonl",
+      "events": 18089,
+      "batches": 362,
+      "final_partial_flush": 39
+    },
+    {
+      "batch_size": 100,
+      "file": "capture_batch100_20260905_094315.jsonl",
+      "events": 18089,
+      "batches": 181,
+      "final_partial_flush": 89
+    }
+  ]
+}

@@ -1,0 +1,452 @@
+{
+  "test_config": {
+    "target_eps": 500,
+    "duration_s": 15,
+    "target": "kafka",
+    "batch_size": 100
+  },
+  "summary": {
+    "sent_total": 6200,
+    "errors": 0,
+    "elapsed_s": 15.0,
+    "eps_achieved": 413.3,
+    "success_rate": 100.0
+  },
+  "checkpoints": [
+    {
+      "elapsed_s": 0.2,
+      "sent": 100,
+      "eps_actual": 421.7,
+      "send_ms": 4.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 0.5,
+      "sent": 200,
+      "eps_actual": 419.1,
+      "send_ms": 3.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 0.7,
+      "sent": 300,
+      "eps_actual": 418.3,
+      "send_ms": 2.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 1.0,
+      "sent": 400,
+      "eps_actual": 418.8,
+      "send_ms": 3.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 1.2,
+      "sent": 500,
+      "eps_actual": 418.4,
+      "send_ms": 5.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 1.4,
+      "sent": 600,
+      "eps_actual": 416.8,
+      "send_ms": 3.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 1.7,
+      "sent": 700,
+      "eps_actual": 417.3,
+      "send_ms": 3.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 1.9,
+      "sent": 800,
+      "eps_actual": 417.2,
+      "send_ms": 2.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 2.2,
+      "sent": 900,
+      "eps_actual": 417.8,
+      "send_ms": 7.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 2.4,
+      "sent": 1000,
+      "eps_actual": 416.9,
+      "send_ms": 3.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 2.6,
+      "sent": 1100,
+      "eps_actual": 417.4,
+      "send_ms": 4.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 2.9,
+      "sent": 1200,
+      "eps_actual": 417.3,
+      "send_ms": 2.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 3.1,
+      "sent": 1300,
+      "eps_actual": 417.4,
+      "send_ms": 5.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 3.4,
+      "sent": 1400,
+      "eps_actual": 416.9,
+      "send_ms": 3.7,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 3.6,
+      "sent": 1500,
+      "eps_actual": 416.8,
+      "send_ms": 3.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 3.8,
+      "sent": 1600,
+      "eps_actual": 416.6,
+      "send_ms": 5.7,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 4.1,
+      "sent": 1700,
+      "eps_actual": 416.3,
+      "send_ms": 5.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 4.3,
+      "sent": 1800,
+      "eps_actual": 415.9,
+      "send_ms": 4.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 4.6,
+      "sent": 1900,
+      "eps_actual": 415.7,
+      "send_ms": 4.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 4.8,
+      "sent": 2000,
+      "eps_actual": 413.8,
+      "send_ms": 4.3,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 5.1,
+      "sent": 2100,
+      "eps_actual": 414.1,
+      "send_ms": 5.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 5.3,
+      "sent": 2200,
+      "eps_actual": 414.0,
+      "send_ms": 5.3,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 5.6,
+      "sent": 2300,
+      "eps_actual": 413.6,
+      "send_ms": 6.5,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 5.8,
+      "sent": 2400,
+      "eps_actual": 413.2,
+      "send_ms": 7.7,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 6.1,
+      "sent": 2500,
+      "eps_actual": 413.1,
+      "send_ms": 4.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 6.3,
+      "sent": 2600,
+      "eps_actual": 413.5,
+      "send_ms": 1.7,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 6.5,
+      "sent": 2700,
+      "eps_actual": 413.9,
+      "send_ms": 2.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 6.8,
+      "sent": 2800,
+      "eps_actual": 414.0,
+      "send_ms": 5.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 7.0,
+      "sent": 2900,
+      "eps_actual": 414.0,
+      "send_ms": 3.1,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 7.2,
+      "sent": 3000,
+      "eps_actual": 414.1,
+      "send_ms": 6.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 7.5,
+      "sent": 3100,
+      "eps_actual": 414.2,
+      "send_ms": 3.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 7.7,
+      "sent": 3200,
+      "eps_actual": 414.5,
+      "send_ms": 4.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 8.0,
+      "sent": 3300,
+      "eps_actual": 414.4,
+      "send_ms": 4.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 8.2,
+      "sent": 3400,
+      "eps_actual": 414.4,
+      "send_ms": 5.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 8.4,
+      "sent": 3500,
+      "eps_actual": 414.5,
+      "send_ms": 5.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 8.7,
+      "sent": 3600,
+      "eps_actual": 414.5,
+      "send_ms": 5.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 8.9,
+      "sent": 3700,
+      "eps_actual": 414.6,
+      "send_ms": 2.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 9.2,
+      "sent": 3800,
+      "eps_actual": 414.7,
+      "send_ms": 5.5,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 9.4,
+      "sent": 3900,
+      "eps_actual": 414.7,
+      "send_ms": 2.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 9.6,
+      "sent": 4000,
+      "eps_actual": 414.8,
+      "send_ms": 2.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 9.9,
+      "sent": 4100,
+      "eps_actual": 415.0,
+      "send_ms": 5.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 10.1,
+      "sent": 4200,
+      "eps_actual": 415.1,
+      "send_ms": 3.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 10.4,
+      "sent": 4300,
+      "eps_actual": 415.1,
+      "send_ms": 5.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 10.6,
+      "sent": 4400,
+      "eps_actual": 415.1,
+      "send_ms": 6.0,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 10.8,
+      "sent": 4500,
+      "eps_actual": 415.1,
+      "send_ms": 1.6,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 11.1,
+      "sent": 4600,
+      "eps_actual": 415.3,
+      "send_ms": 4.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 11.3,
+      "sent": 4700,
+      "eps_actual": 415.4,
+      "send_ms": 5.1,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 11.6,
+      "sent": 4800,
+      "eps_actual": 415.4,
+      "send_ms": 2.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 11.8,
+      "sent": 4900,
+      "eps_actual": 415.5,
+      "send_ms": 6.1,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 12.0,
+      "sent": 5000,
+      "eps_actual": 415.1,
+      "send_ms": 6.3,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 12.3,
+      "sent": 5100,
+      "eps_actual": 415.0,
+      "send_ms": 2.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 12.5,
+      "sent": 5200,
+      "eps_actual": 415.3,
+      "send_ms": 1.7,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 12.8,
+      "sent": 5300,
+      "eps_actual": 415.5,
+      "send_ms": 1.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 13.0,
+      "sent": 5400,
+      "eps_actual": 415.5,
+      "send_ms": 3.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 13.2,
+      "sent": 5500,
+      "eps_actual": 415.6,
+      "send_ms": 3.8,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 13.5,
+      "sent": 5600,
+      "eps_actual": 415.6,
+      "send_ms": 3.3,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 13.7,
+      "sent": 5700,
+      "eps_actual": 415.4,
+      "send_ms": 4.2,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 14.0,
+      "sent": 5800,
+      "eps_actual": 415.5,
+      "send_ms": 3.1,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 14.2,
+      "sent": 5900,
+      "eps_actual": 415.6,
+      "send_ms": 4.3,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 14.4,
+      "sent": 6000,
+      "eps_actual": 415.6,
+      "send_ms": 3.4,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 14.7,
+      "sent": 6100,
+      "eps_actual": 415.8,
+      "send_ms": 3.9,
+      "errors": 0
+    },
+    {
+      "elapsed_s": 14.9,
+      "sent": 6200,
+      "eps_actual": 415.8,
+      "send_ms": 2.1,
+      "errors": 0
+    }
+  ],
+  "timestamp": "2026-03-13T21:25:52.810893+00:00"
+}

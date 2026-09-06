@@ -2,13 +2,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore"
+    )
 
     # Azure Event Hub auth — use ONE of the following:
-    # 1. Connection string from Key Vault (thesis/dev)
+    # 1. Connection string supplied explicitly for local validation
     eventhub_connection_string: str = ""
     # 2. Namespace + Managed Identity (production/OIDC — no secret needed)
-    eventhub_namespace: str = ""   # e.g. thesis-crypto-eh-ns.servicebus.windows.net
+    eventhub_namespace: str = ""  # e.g. thesis-crypto-eh-ns.servicebus.windows.net
     eventhub_name: str = "crypto-prices"
 
     # Local Kafka (for offline dev)
@@ -17,13 +19,13 @@ class Settings(BaseSettings):
     kafka_topic: str = "crypto-prices"
 
     # Data source
-    data_source: str = "merged"               # "merged" | "coinbase_ws" | "coingecko_rest"
+    data_source: str = "merged"  # "merged" | "coinbase_ws" | "coingecko_rest"
     symbols: str = "BTC-USD,ETH-USD,SOL-USD,BNB-USD,XRP-USD"
 
     # Throughput control
-    batch_size: int = 50                       # events per EventHub batch
-    max_events_per_second: int = 0             # 0 = unlimited (as fast as source sends)
-    poll_interval: float = 10.0                # seconds between CoinGecko polls
+    batch_size: int = 50  # events per EventHub batch
+    max_events_per_second: int = 0  # 0 = unlimited (as fast as source sends)
+    poll_interval: float = 10.0  # seconds between CoinGecko polls
 
     @property
     def symbol_list(self) -> list[str]:

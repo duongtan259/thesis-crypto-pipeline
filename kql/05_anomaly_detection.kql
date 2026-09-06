@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════
-// ANOMALY DETECTION — Price spike and volume surge alerts
+// ANOMALY DETECTION — Price changes and rolling-volume-snapshot changes
 // Runs on top of price_silver
 // Run after 02_silver.kql
 // ════════════════════════════════════════════════════════════════
@@ -8,7 +8,7 @@
 .create-merge table price_alerts (
     alert_id:       string,
     symbol:         string,
-    alert_type:     string,    // "PRICE_SPIKE" | "PRICE_DROP" | "VOLUME_SURGE"
+    alert_type:     string,    // "PRICE_SPIKE" | "PRICE_DROP"
     triggered_at:   datetime,
     price_before:   real,
     price_after:    real,
@@ -21,13 +21,14 @@
 // Usage: DetectPriceSpikes(2.0, 60s)  -- >2% move in 60 seconds
 .create-or-alter function DetectPriceSpikes(threshold_pct: real = 2.0, window: timespan = 60s) {
     price_silver
-    | where timestamp_utc > ago(10m)
-    | sort by symbol asc, timestamp_utc asc
+    | where timestamp_utc > ago(window)
+    | sort by symbol asc, timestamp_utc asc, sequence asc, event_id asc
     | serialize
     | extend
         prev_price  = prev(price_usd, 1),
-        prev_symbol = prev(symbol, 1)
-    | where symbol == prev_symbol
+        prev_symbol = prev(symbol, 1),
+        prev_time   = prev(timestamp_utc, 1)
+    | where symbol == prev_symbol and timestamp_utc - prev_time <= window
     | extend change_pct = (price_usd - prev_price) / prev_price * 100.0
     | where abs(change_pct) >= threshold_pct
     | extend
@@ -48,24 +49,26 @@
         severity
 }
 
-// Function: detect volume surges (> 3x rolling average)
-.create-or-alter function DetectVolumeSurges(multiplier: real = 3.0, lookback: timespan = 5m) {
-    let avg_volume =
+// Function: detect changes in Coinbase's rolling 24-hour volume snapshot.
+// This is not per-window traded volume and is named separately to prevent that inference.
+.create-or-alter function DetectVolume24hSnapshotChange(multiplier: real = 3.0, lookback: timespan = 5m) {
+    let baseline =
         price_silver
         | where timestamp_utc between (ago(lookback + 1h) .. ago(lookback))
-        | summarize baseline_volume = avg(volume_24h) by symbol;
+        | summarize baseline_snapshot_24h = avg(volume_24h) by symbol;
     price_silver
     | where timestamp_utc > ago(lookback)
-    | summarize current_volume = avg(volume_24h) by symbol
-    | join kind=inner avg_volume on symbol
-    | extend volume_ratio = current_volume / baseline_volume
-    | where volume_ratio >= multiplier
+    | summarize current_snapshot_24h = avg(volume_24h) by symbol
+    | join kind=inner baseline on symbol
+    | extend snapshot_ratio = current_snapshot_24h / baseline_snapshot_24h
+    | where snapshot_ratio >= multiplier
     | extend severity = case(
-        volume_ratio >= 10.0, "CRITICAL",
-        volume_ratio >= 5.0,  "HIGH",
-        volume_ratio >= 3.0,  "MEDIUM",
+        snapshot_ratio >= 10.0, "CRITICAL",
+        snapshot_ratio >= 5.0,  "HIGH",
+        snapshot_ratio >= 3.0,  "MEDIUM",
         "LOW")
-    | project symbol, volume_ratio=round(volume_ratio, 2), current_volume, baseline_volume, severity
+    | project symbol, snapshot_ratio=round(snapshot_ratio, 2),
+              current_snapshot_24h, baseline_snapshot_24h, severity
 }
 
 // Function: rolling volatility (std dev of log returns)
@@ -89,5 +92,5 @@
 
 // Quick test queries
 // DetectPriceSpikes(1.0, 60s)
-// DetectVolumeSurges(2.0, 10m)
+// DetectVolume24hSnapshotChange(2.0, 10m)
 // GetVolatility(1h)
